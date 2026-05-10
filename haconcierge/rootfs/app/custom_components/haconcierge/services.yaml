@@ -1,0 +1,32 @@
+send_reply:
+  name: WhatsApp Antwort senden
+  description: >
+    Sendet eine WhatsApp-Nachricht an einen Besitzer oder Chat, optional mit
+    Zitierfunktion (Quote) auf eine empfangene Nachricht.
+  fields:
+    jid:
+      name: WhatsApp JID
+      description: >
+        WhatsApp JID des Empfängers. Format: 491701234567@s.whatsapp.net
+        für Direktnachrichten. Aus Event-Daten: event.data.owner_phone + '@s.whatsapp.net'
+      required: true
+      example: "491701234567@s.whatsapp.net"
+      selector:
+        text:
+    text:
+      name: Nachrichtentext
+      description: Der zu sendende Text.
+      required: true
+      example: "Termin wurde eingetragen ✅"
+      selector:
+        text:
+          multiline: true
+    quoted_message_id:
+      name: Zitierte Nachrichten-ID
+      description: >
+        ID der WhatsApp-Nachricht die zitiert werden soll (aus Event-Daten: event.data.wa_message_id).
+        Aktiviert die WhatsApp-Zitierfunktion.
+      required: false
+      example: "3EB0B1234567890"
+      selector:
+        text:

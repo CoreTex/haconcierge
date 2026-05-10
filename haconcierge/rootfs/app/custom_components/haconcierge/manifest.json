@@ -1,0 +1,12 @@
+{
+  "domain": "haconcierge",
+  "name": "HAConcierge",
+  "version": "1.0.0",
+  "documentation": "https://github.com/YOUR_GITHUB_USERNAME/haconcierge",
+  "issue_tracker": "https://github.com/YOUR_GITHUB_USERNAME/haconcierge/issues",
+  "dependencies": [],
+  "codeowners": ["@YOUR_GITHUB_USERNAME"],
+  "requirements": [],
+  "iot_class": "local_push",
+  "integration_type": "service"
+}

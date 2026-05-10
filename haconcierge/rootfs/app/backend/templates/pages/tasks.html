@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% set page = "tasks" %}
+{% block content %}
+<div class="max-w-4xl mx-auto">
+  <h1 class="text-2xl font-bold mb-6">Aufgaben</h1>
+  <div id="tasks-container"
+       hx-get="/api/dashboard" hx-trigger="load" hx-swap="none">
+    <div class="text-gray-500 text-sm">Lade Aufgaben...</div>
+  </div>
+</div>
+<script>
+  // Load tasks via dashboard API until dedicated endpoint is added
+  fetch('/api/dashboard').then(r => r.json()).then(data => {
+    const container = document.getElementById('tasks-container');
+    const tasks = data.recent_tasks;
+    container.innerHTML = tasks.length
+      ? `<div class="space-y-3">` + tasks.map(t => `
+        <div class="card flex items-center justify-between">
+          <div>
+            <p class="font-medium">${t.title}</p>
+            ${t.due_date ? `<p class="text-xs text-gray-400">Fällig: ${new Date(t.due_date).toLocaleDateString('de-DE')}</p>` : ''}
+          </div>
+          <span class="badge-${t.status === 'open' ? 'yellow' : 'green'}">${t.status}</span>
+        </div>`).join('') + `</div>`
+      : '<div class="card text-gray-500 text-center py-10">Keine Aufgaben</div>';
+  });
+</script>
+{% endblock %}

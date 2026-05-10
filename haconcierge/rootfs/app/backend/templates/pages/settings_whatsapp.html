@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% set page = "settings" %}
+{% block content %}
+<div class="max-w-2xl mx-auto">
+  <h1 class="text-2xl font-bold mb-2">Einstellungen – WhatsApp</h1>
+  <div class="flex gap-4 mb-6 border-b border-gray-800 pb-0">
+    <a href="/settings/whatsapp" class="pb-3 border-b-2 border-blue-500 text-blue-400 text-sm font-medium">WhatsApp</a>
+    <a href="/settings/ai" class="pb-3 border-b-2 border-transparent text-gray-400 hover:text-white text-sm">KI / AI</a>
+    <a href="/settings/o365" class="pb-3 border-b-2 border-transparent text-gray-400 hover:text-white text-sm">Microsoft 365</a>
+  </div>
+
+  <div id="wa-status-card" class="card mb-6"
+       hx-get="/api/whatsapp/status" hx-trigger="load, every 15s" hx-swap="innerHTML">
+    <div class="text-gray-500 text-sm">Status wird geladen...</div>
+  </div>
+
+  <!-- Registration Section -->
+  <div class="card mb-6">
+    <h2 class="font-semibold mb-4">WhatsApp Registrierung</h2>
+    <p class="text-sm text-gray-400 mb-4">
+      Gib deine Telefonnummer ein. WhatsApp sendet einen OTP-Code per SMS.
+      Da deine Nummer bei simquadrat registriert ist, erhältst du die SMS als E-Mail.
+    </p>
+
+    <div id="reg-step-1">
+      <div class="space-y-3">
+        <div>
+          <label class="text-xs text-gray-400 mb-1 block">Telefonnummer (international, ohne +)</label>
+          <input id="reg-phone" type="text" class="input" placeholder="491701234567">
+        </div>
+        <div class="flex gap-3">
+          <button class="btn-primary" onclick="requestCode()">OTP anfordern (SMS)</button>
+          <button class="btn-secondary" onclick="requestPairing()">Pairing Code (bestehender Account)</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="reg-step-2" class="hidden space-y-3">
+      <p class="text-sm text-green-400">✅ Code angefordert! Prüfe deine E-Mail von simquadrat.</p>
+      <div>
+        <label class="text-xs text-gray-400 mb-1 block">OTP Code aus E-Mail</label>
+        <input id="reg-code" type="text" maxlength="8" class="input" placeholder="123456">
+      </div>
+      <button class="btn-primary" onclick="confirmCode()">Bestätigen</button>
+    </div>
+
+    <div id="reg-pairing" class="hidden space-y-3">
+      <p class="text-sm text-yellow-400">📱 Öffne WhatsApp auf deinem Handy → Einstellungen → Verknüpfte Geräte → Gerät verknüpfen → Statt QR-Code: Code eingeben</p>
+      <div id="pairing-code" class="text-4xl font-mono tracking-widest text-center py-4 text-blue-300 bg-gray-800 rounded-lg"></div>
+      <p class="text-xs text-gray-500 text-center">Code ist 60 Sekunden gültig</p>
+    </div>
+  </div>
+
+  <!-- Notification Settings -->
+  <div class="card">
+    <h2 class="font-semibold mb-4">Benachrichtigungen</h2>
+    <form hx-put="/api/settings/notifications" hx-ext="json-enc"
+          hx-on::after-request="showToast('Einstellungen gespeichert')">
+      <label class="flex items-center gap-3 cursor-pointer">
+        <input type="checkbox" name="wa_proactive_notify" id="proactive-notify" class="rounded">
+        <div>
+          <p class="text-sm font-medium">Proaktive Benachrichtigungen</p>
+          <p class="text-xs text-gray-500">Besitzer per WhatsApp DM informieren wenn Aufgaben/Termine erkannt werden</p>
+        </div>
+      </label>
+      <button type="submit" class="btn-primary mt-4">Speichern</button>
+    </form>
+  </div>
+</div>
+
+<script>
+  document.addEventListener('htmx:afterRequest', function(e) {
+    if (!e.detail.pathInfo.requestPath.includes('/api/whatsapp/status')) return;
+    try {
+      const s = JSON.parse(e.detail.xhr.responseText);
+      document.getElementById('wa-status-card').innerHTML = `
+        <div class="flex items-center gap-3">
+          <div class="w-3 h-3 rounded-full ${s.connected ? 'bg-green-500' : 'bg-red-500'}"></div>
+          <div>
+            <p class="font-medium">${s.connected ? 'Verbunden' : 'Nicht verbunden'}</p>
+            ${s.phone ? `<p class="text-xs text-gray-400">+${s.phone}</p>` : ''}
+            <p class="text-xs text-gray-500">${s.status || ''}</p>
+          </div>
+          ${s.connected ? '<button class="btn-danger text-xs ml-auto" onclick="disconnect()">Trennen</button>' : ''}
+        </div>
+      `;
+    } catch(e) {}
+  });
+
+  async function requestCode() {
+    const phone = document.getElementById('reg-phone').value.trim();
+    if (!phone) return;
+    const resp = await fetch('/api/whatsapp/register/request-code', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({phone})
+    });
+    const data = await resp.json();
+    if (data.success !== false) {
+      document.getElementById('reg-step-1').classList.add('hidden');
+      document.getElementById('reg-step-2').classList.remove('hidden');
+    } else { showToast('Fehler: ' + (data.error || 'Unbekannt'), 'error'); }
+  }
+
+  async function confirmCode() {
+    const phone = document.getElementById('reg-phone').value.trim();
+    const code = document.getElementById('reg-code').value.trim();
+    const resp = await fetch('/api/whatsapp/register/confirm-code', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({phone, code})
+    });
+    const data = await resp.json();
+    if (data.success) {
+      showToast('WhatsApp erfolgreich registriert! 🎉');
+      document.getElementById('reg-step-2').classList.add('hidden');
+      htmx.trigger('#wa-status-card', 'load');
+    } else { showToast('Fehler: ' + (data.error || 'Ungültiger Code'), 'error'); }
+  }
+
+  async function requestPairing() {
+    const phone = document.getElementById('reg-phone').value.trim();
+    if (!phone) return;
+    const resp = await fetch('/api/whatsapp/pair/request-code', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({phone})
+    });
+    const data = await resp.json();
+    if (data.code) {
+      document.getElementById('reg-step-1').classList.add('hidden');
+      document.getElementById('reg-pairing').classList.remove('hidden');
+      document.getElementById('pairing-code').textContent = data.code;
+    } else { showToast('Fehler: ' + (data.error || 'Unbekannt'), 'error'); }
+  }
+
+  async function disconnect() {
+    await fetch('/api/whatsapp/disconnect', {method: 'POST'});
+    htmx.trigger('#wa-status-card', 'load');
+  }
+
+  // Load notification settings
+  fetch('/api/settings').then(r => r.json()).then(s => {
+    document.getElementById('proactive-notify').checked = s.wa_proactive_notify === 'true';
+  });
+</script>
+{% endblock %}

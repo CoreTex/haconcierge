@@ -1,0 +1,33 @@
+---
+name: HAConcierge
+version: "1.0.0"
+slug: haconcierge
+description: WhatsApp AI Concierge – Nachrichten, Termine & Aufgaben für Home Assistant
+url: https://github.com/YOUR_GITHUB_USERNAME/haconcierge
+arch:
+  - aarch64
+  - amd64
+  - armv7
+startup: application
+boot: auto
+map:
+  - config:rw
+ports:
+  8099/tcp: null
+ingress: true
+ingress_port: 8099
+ingress_stream: false
+panel_icon: mdi:robot
+panel_title: HAConcierge
+homeassistant_api: true
+auth_api: true
+hassio_api: true
+hassio_role: default
+environment:
+  PYTHONUNBUFFERED: "1"
+  NODE_ENV: "production"
+options:
+  log_level: "info"
+schema:
+  log_level: "str"
+image: "ghcr.io/YOUR_GITHUB_USERNAME/haconcierge-{arch}"

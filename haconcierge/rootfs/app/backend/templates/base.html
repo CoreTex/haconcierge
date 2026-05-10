@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="de" class="h-full bg-gray-950">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HAConcierge</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/htmx.org@2.0.3"></script>
+  <script src="https://unpkg.com/htmx.org@2.0.3/dist/ext/json-enc.js"></script>
+  <style>
+    .nav-link { @apply flex items-center gap-3 px-3 py-2 rounded-lg text-gray-400 hover:bg-gray-800 hover:text-white transition-colors; }
+    .nav-link.active { @apply bg-blue-900 text-blue-300; }
+    .card { @apply bg-gray-900 border border-gray-800 rounded-xl p-5; }
+    .btn-primary { @apply bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors; }
+    .btn-secondary { @apply bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors; }
+    .btn-danger { @apply bg-red-700 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors; }
+    .input { @apply bg-gray-800 border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 w-full; }
+    .badge-green { @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-900 text-green-300; }
+    .badge-yellow { @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-900 text-yellow-300; }
+    .badge-red { @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-900 text-red-300; }
+    .badge-blue { @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-900 text-blue-300; }
+  </style>
+  <script>
+    tailwind.config = { darkMode: 'class', theme: { extend: {} } }
+    function showToast(msg, type='success') {
+      const t = document.createElement('div');
+      t.className = `fixed top-4 right-4 z-50 px-4 py-3 rounded-lg text-sm font-medium shadow-lg transition-all ${type==='success'?'bg-green-800 text-green-100':'bg-red-800 text-red-100'}`;
+      t.textContent = msg;
+      document.body.appendChild(t);
+      setTimeout(() => t.remove(), 3500);
+    }
+    document.addEventListener('htmx:responseError', e => showToast('Fehler: ' + e.detail.xhr.responseText, 'error'));
+  </script>
+</head>
+<body class="h-full text-white" hx-boost="true">
+<div class="flex h-screen">
+  <!-- Sidebar -->
+  <aside class="w-56 bg-gray-900 border-r border-gray-800 flex flex-col p-4 gap-1 shrink-0">
+    <div class="flex items-center gap-2 mb-6 px-3">
+      <span class="text-2xl">🤵</span>
+      <span class="font-bold text-lg text-white">HAConcierge</span>
+    </div>
+    <nav class="flex-1 flex flex-col gap-1">
+      <a href="/" class="nav-link {% if page == 'dashboard' %}active{% endif %}">
+        <span>📊</span> Dashboard
+      </a>
+      <a href="/owners" class="nav-link {% if page == 'owners' %}active{% endif %}">
+        <span>👨‍👩‍👧‍👦</span> Besitzer
+      </a>
+      <a href="/groups" class="nav-link {% if page == 'groups' %}active{% endif %}">
+        <span>💬</span> Gruppen
+      </a>
+      <a href="/messages" class="nav-link {% if page == 'messages' %}active{% endif %}">
+        <span>📨</span> Nachrichten
+      </a>
+      <a href="/tasks" class="nav-link {% if page == 'tasks' %}active{% endif %}">
+        <span>✅</span> Aufgaben
+      </a>
+      <a href="/appointments" class="nav-link {% if page == 'appointments' %}active{% endif %}">
+        <span>📅</span> Termine
+      </a>
+      <div class="mt-auto border-t border-gray-800 pt-2">
+        <a href="/settings/whatsapp" class="nav-link {% if page == 'settings' %}active{% endif %}">
+          <span>⚙️</span> Einstellungen
+        </a>
+      </div>
+    </nav>
+    <!-- WA Status indicator -->
+    <div id="wa-status" hx-get="/api/whatsapp/status" hx-trigger="load, every 30s" hx-swap="innerHTML"
+         class="px-3 py-2 text-xs text-gray-500">
+      Verbindung wird geprüft...
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="flex-1 overflow-y-auto bg-gray-950 p-6">
+    {% block content %}{% endblock %}
+  </main>
+</div>
+</body>
+</html>

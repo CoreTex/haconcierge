@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% set page = "owners" %}
+{% block content %}
+<div class="max-w-4xl mx-auto">
+  <div class="flex items-center justify-between mb-6">
+    <h1 class="text-2xl font-bold">Besitzer</h1>
+    <button class="btn-primary" onclick="document.getElementById('add-owner-modal').classList.remove('hidden')">
+      + Besitzer hinzufügen
+    </button>
+  </div>
+
+  <div id="owners-list" hx-get="/api/owners" hx-trigger="load" hx-swap="innerHTML">
+    <div class="text-gray-500 text-sm">Laden...</div>
+  </div>
+</div>
+
+<!-- Add Owner Modal -->
+<div id="add-owner-modal" class="hidden fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
+  <div class="bg-gray-900 border border-gray-700 rounded-xl p-6 w-full max-w-md mx-4">
+    <h2 class="text-lg font-semibold mb-4">Neuer Besitzer</h2>
+    <form hx-post="/api/owners" hx-ext="json-enc" hx-target="#owners-list" hx-swap="innerHTML"
+          hx-on::after-request="document.getElementById('add-owner-modal').classList.add('hidden'); showToast('Besitzer erstellt')">
+      <div class="space-y-3">
+        <div>
+          <label class="text-xs text-gray-400 mb-1 block">Name *</label>
+          <input type="text" name="name" required class="input" placeholder="z.B. Anna">
+        </div>
+        <div>
+          <label class="text-xs text-gray-400 mb-1 block">Telefonnummer *</label>
+          <input type="text" name="phone" required class="input" placeholder="491701234567 (ohne +)">
+        </div>
+        <div>
+          <label class="text-xs text-gray-400 mb-1 block">Aliase (kommagetrennt)</label>
+          <input type="text" name="aliases_raw" class="input" placeholder="Mama, Mutter von Max, Anna">
+          <p class="text-xs text-gray-600 mt-1">Diese Namen werden in Nachrichten erkannt</p>
+        </div>
+        <div>
+          <label class="text-xs text-gray-400 mb-1 block">O365 E-Mail</label>
+          <input type="email" name="o365_email" class="input" placeholder="anna@firma.de">
+        </div>
+        <div class="flex items-center gap-4 pt-1">
+          <label class="flex items-center gap-2 text-sm cursor-pointer">
+            <input type="checkbox" name="notify_on_task" checked class="rounded"> Aufgaben
+          </label>
+          <label class="flex items-center gap-2 text-sm cursor-pointer">
+            <input type="checkbox" name="notify_on_appointment" checked class="rounded"> Termine
+          </label>
+          <label class="flex items-center gap-2 text-sm cursor-pointer">
+            <input type="checkbox" name="notify_on_keyword" checked class="rounded"> Keywords
+          </label>
+        </div>
+      </div>
+      <div class="flex gap-3 mt-5">
+        <button type="submit" class="btn-primary">Speichern</button>
+        <button type="button" class="btn-secondary"
+                onclick="document.getElementById('add-owner-modal').classList.add('hidden')">
+          Abbrechen
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  document.addEventListener('htmx:afterRequest', function(e) {
+    if (!e.detail.pathInfo.requestPath.startsWith('/api/owners')) return;
+    if (e.detail.requestConfig.verb !== 'get') return;
+    try {
+      const owners = JSON.parse(e.detail.xhr.responseText);
+      document.getElementById('owners-list').innerHTML = owners.length ? owners.map(o => `
+        <div class="card mb-4">
+          <div class="flex items-start justify-between">
+            <div>
+              <h3 class="font-semibold text-lg">${o.name}
+                ${o.active ? '<span class="badge-green ml-2">aktiv</span>' : '<span class="badge-red ml-2">inaktiv</span>'}
+              </h3>
+              <p class="text-gray-400 text-sm mt-1">📱 +${o.phone}</p>
+              ${o.o365_email ? `<p class="text-gray-400 text-sm">📧 ${o.o365_email}</p>` : ''}
+              ${o.aliases.length ? `<p class="text-gray-500 text-xs mt-1">Aliase: ${o.aliases.join(', ')}</p>` : ''}
+            </div>
+            <div class="flex gap-2">
+              <button class="btn-secondary text-xs" onclick="editOwner(${o.id})">Bearbeiten</button>
+              <button class="btn-danger text-xs"
+                      hx-delete="/api/owners/${o.id}"
+                      hx-confirm="Besitzer '${o.name}' wirklich löschen?"
+                      hx-target="#owners-list"
+                      hx-get="/api/owners"
+                      hx-swap="innerHTML">Löschen</button>
+            </div>
+          </div>
+          <!-- Keywords -->
+          <div class="mt-4 border-t border-gray-800 pt-3">
+            <div class="flex items-center gap-2 mb-2">
+              <span class="text-xs text-gray-500 font-medium">KEYWORDS</span>
+            </div>
+            <div class="flex flex-wrap gap-2 mb-2">
+              ${o.keywords.map(k => `
+                <span class="badge-blue flex items-center gap-1">
+                  ${k.word}
+                  <button onclick="deleteKeyword(${o.id}, ${k.id}, this.closest('.badge-blue'))" class="ml-1 text-blue-400 hover:text-white">×</button>
+                </span>`).join('') || '<span class="text-gray-600 text-xs">Keine Keywords</span>'}
+            </div>
+            <form class="flex gap-2" onsubmit="addKeyword(event, ${o.id})">
+              <input type="text" placeholder="Neues Keyword..." class="input text-xs py-1 flex-1">
+              <button type="submit" class="btn-primary text-xs py-1">+</button>
+            </form>
+          </div>
+          <!-- Notifications -->
+          <div class="flex gap-4 mt-3 text-xs text-gray-500">
+            <span>${o.notify_on_task ? '✅' : '❌'} Aufgaben</span>
+            <span>${o.notify_on_appointment ? '✅' : '❌'} Termine</span>
+            <span>${o.notify_on_keyword ? '✅' : '❌'} Keywords</span>
+          </div>
+        </div>
+      `).join('') : '<div class="card text-gray-500 text-center py-10">Noch keine Besitzer angelegt.</div>';
+    } catch(e) { console.error(e); }
+  });
+
+  async function addKeyword(e, ownerId) {
+    e.preventDefault();
+    const input = e.target.querySelector('input');
+    const word = input.value.trim();
+    if (!word) return;
+    const resp = await fetch(`/api/owners/${ownerId}/keywords`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({word})
+    });
+    if (resp.ok) {
+      input.value = '';
+      htmx.ajax('GET', '/api/owners', {target: '#owners-list', swap: 'innerHTML'});
+      showToast('Keyword hinzugefügt');
+    } else { showToast('Fehler', 'error'); }
+  }
+
+  async function deleteKeyword(ownerId, kwId, el) {
+    const resp = await fetch(`/api/owners/${ownerId}/keywords/${kwId}`, {method: 'DELETE'});
+    if (resp.ok) { el.remove(); showToast('Keyword entfernt'); }
+  }
+
+  function editOwner(id) { /* TODO: open edit modal */ }
+</script>
+{% endblock %}

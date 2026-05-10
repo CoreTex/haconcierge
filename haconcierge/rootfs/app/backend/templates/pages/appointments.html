@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% set page = "appointments" %}
+{% block content %}
+<div class="max-w-4xl mx-auto">
+  <h1 class="text-2xl font-bold mb-6">Termine</h1>
+  <div id="appts-container">
+    <div class="text-gray-500 text-sm">Lade Termine...</div>
+  </div>
+</div>
+<script>
+  fetch('/api/dashboard').then(r => r.json()).then(data => {
+    const container = document.getElementById('appts-container');
+    const appts = data.upcoming_appointments;
+    container.innerHTML = appts.length
+      ? `<div class="space-y-3">` + appts.map(a => `
+        <div class="card flex items-center justify-between">
+          <div>
+            <p class="font-medium">${a.title}</p>
+            <p class="text-sm text-gray-400">${new Date(a.start_time).toLocaleString('de-DE')}</p>
+            ${a.location ? `<p class="text-xs text-gray-500">📍 ${a.location}</p>` : ''}
+          </div>
+          <span class="badge-blue">📅</span>
+        </div>`).join('') + `</div>`
+      : '<div class="card text-gray-500 text-center py-10">Keine anstehenden Termine</div>';
+  });
+</script>
+{% endblock %}

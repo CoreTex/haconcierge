@@ -1,0 +1,11 @@
+{% if connected %}
+<div class="flex items-center gap-2">
+  <div class="w-2 h-2 rounded-full bg-green-500"></div>
+  <span class="text-xs text-green-400">Verbunden{% if phone %} (+{{ phone }}){% endif %}</span>
+</div>
+{% else %}
+<div class="flex items-center gap-2">
+  <div class="w-2 h-2 rounded-full bg-red-500"></div>
+  <span class="text-xs text-red-400">{{ status | default("Getrennt") }}</span>
+</div>
+{% endif %}
