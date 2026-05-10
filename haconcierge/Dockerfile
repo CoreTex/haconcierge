@@ -5,6 +5,7 @@ FROM ${BUILD_FROM}
 RUN apk add --no-cache \
     nodejs \
     npm \
+    git \
     supervisor \
     gcc \
     musl-dev \
