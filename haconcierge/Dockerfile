@@ -1,7 +1,7 @@
-ARG BUILD_FROM=ghcr.io/home-assistant/aarch64-base-python:latest
+ARG BUILD_FROM=python:3.12-alpine
 FROM ${BUILD_FROM}
 
-# Install system dependencies
+# System dependencies – no browser needed, Baileys is pure Node.js
 RUN apk add --no-cache \
     nodejs \
     npm \
@@ -9,15 +9,16 @@ RUN apk add --no-cache \
     gcc \
     musl-dev \
     libffi-dev \
-    openssl-dev
+    openssl-dev \
+    bash
 
 WORKDIR /app
 
-# Install Python dependencies
+# Python dependencies (pydantic-core has musllinux wheels for Python 3.12)
 COPY rootfs/app/backend/requirements.txt /app/requirements.txt
 RUN pip3 install --no-cache-dir -r requirements.txt
 
-# Install Node.js WhatsApp bridge
+# Node.js WhatsApp bridge
 COPY rootfs/app/whatsapp-bridge/package.json /app/whatsapp-bridge/package.json
 WORKDIR /app/whatsapp-bridge
 RUN npm install --omit=dev --legacy-peer-deps
