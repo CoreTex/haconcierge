@@ -53,6 +53,10 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # ghcr.io requires all-lowercase repository names
+      - name: Set lowercase image owner
+        run: echo "IMAGE_OWNER=$(echo ${GITHUB_REPOSITORY_OWNER} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
@@ -63,5 +67,5 @@ jobs:
           build-args: |
             BUILD_FROM=${{ matrix.base }}
           tags: |
-            ghcr.io/${{ github.repository_owner }}/haconcierge-${{ matrix.arch }}:latest
-            ghcr.io/${{ github.repository_owner }}/haconcierge-${{ matrix.arch }}:${{ github.sha }}
+            ghcr.io/${{ env.IMAGE_OWNER }}/haconcierge-${{ matrix.arch }}:latest
+            ghcr.io/${{ env.IMAGE_OWNER }}/haconcierge-${{ matrix.arch }}:${{ github.sha }}
