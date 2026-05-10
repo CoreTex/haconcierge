@@ -2,7 +2,7 @@
 name: HAConcierge
 version: "1.0.0"
 slug: haconcierge
-description: WhatsApp AI Concierge – Nachrichten, Termine & Aufgaben für Home Assistant
+description: "WhatsApp AI Concierge - Nachrichten, Termine und Aufgaben fuer Home Assistant"
 url: https://github.com/CoreTex/haconcierge
 arch:
   - aarch64
@@ -12,11 +12,8 @@ startup: application
 boot: auto
 map:
   - config:rw
-ports:
-  8099/tcp: null
 ingress: true
 ingress_port: 8099
-ingress_stream: false
 panel_icon: mdi:robot
 panel_title: HAConcierge
 homeassistant_api: true
@@ -30,4 +27,3 @@ options:
   log_level: "info"
 schema:
   log_level: "str"
-image: "ghcr.io/CoreTex/haconcierge-{arch}"
