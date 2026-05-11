@@ -121,7 +121,7 @@
     const input = e.target.querySelector('input');
     const word = input.value.trim();
     if (!word) return;
-    const resp = await fetch(`/api/owners/${ownerId}/keywords`, {
+    const resp = await apiFetch(`/api/owners/${ownerId}/keywords`, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({word})
@@ -134,7 +134,7 @@
   }
 
   async function deleteKeyword(ownerId, kwId, el) {
-    const resp = await fetch(`/api/owners/${ownerId}/keywords/${kwId}`, {method: 'DELETE'});
+    const resp = await apiFetch(`/api/owners/${ownerId}/keywords/${kwId}`, {method: 'DELETE'});
     if (resp.ok) { el.remove(); showToast('Keyword entfernt'); }
   }
 

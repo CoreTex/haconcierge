@@ -4,9 +4,9 @@
 <div class="max-w-2xl mx-auto">
   <h1 class="text-2xl font-bold mb-2">Einstellungen – WhatsApp</h1>
   <div class="flex gap-4 mb-6 border-b border-gray-800 pb-0">
-    <a href="/settings/whatsapp" class="pb-3 border-b-2 border-blue-500 text-blue-400 text-sm font-medium">WhatsApp</a>
-    <a href="/settings/ai" class="pb-3 border-b-2 border-transparent text-gray-400 hover:text-white text-sm">KI / AI</a>
-    <a href="/settings/o365" class="pb-3 border-b-2 border-transparent text-gray-400 hover:text-white text-sm">Microsoft 365</a>
+    <a href="{{ ingress_path }}/settings/whatsapp" class="pb-3 border-b-2 border-blue-500 text-blue-400 text-sm font-medium">WhatsApp</a>
+    <a href="{{ ingress_path }}/settings/ai" class="pb-3 border-b-2 border-transparent text-gray-400 hover:text-white text-sm">KI / AI</a>
+    <a href="{{ ingress_path }}/settings/o365" class="pb-3 border-b-2 border-transparent text-gray-400 hover:text-white text-sm">Microsoft 365</a>
   </div>
 
   <div id="wa-status-card" class="card mb-6"
@@ -90,7 +90,7 @@
   async function requestCode() {
     const phone = document.getElementById('reg-phone').value.trim();
     if (!phone) return;
-    const resp = await fetch('/api/whatsapp/register/request-code', {
+    const resp = await apiFetch('/api/whatsapp/register/request-code', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({phone})
     });
@@ -104,7 +104,7 @@
   async function confirmCode() {
     const phone = document.getElementById('reg-phone').value.trim();
     const code = document.getElementById('reg-code').value.trim();
-    const resp = await fetch('/api/whatsapp/register/confirm-code', {
+    const resp = await apiFetch('/api/whatsapp/register/confirm-code', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({phone, code})
     });
@@ -119,7 +119,7 @@
   async function requestPairing() {
     const phone = document.getElementById('reg-phone').value.trim();
     if (!phone) return;
-    const resp = await fetch('/api/whatsapp/pair/request-code', {
+    const resp = await apiFetch('/api/whatsapp/pair/request-code', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({phone})
     });
@@ -132,12 +132,12 @@
   }
 
   async function disconnect() {
-    await fetch('/api/whatsapp/disconnect', {method: 'POST'});
+    await apiFetch('/api/whatsapp/disconnect', {method: 'POST'});
     htmx.trigger('#wa-status-card', 'load');
   }
 
   // Load notification settings
-  fetch('/api/settings').then(r => r.json()).then(s => {
+  apiFetch('/api/settings').then(r => r.json()).then(s => {
     document.getElementById('proactive-notify').checked = s.wa_proactive_notify === 'true';
   });
 </script>

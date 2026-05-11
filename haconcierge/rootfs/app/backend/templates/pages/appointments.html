@@ -8,7 +8,7 @@
   </div>
 </div>
 <script>
-  fetch('/api/dashboard').then(r => r.json()).then(data => {
+  apiFetch('/api/dashboard').then(r => r.json()).then(data => {
     const container = document.getElementById('appts-container');
     const appts = data.upcoming_appointments;
     container.innerHTML = appts.length

@@ -125,55 +125,62 @@ app.include_router(whatsapp.router)
 app.include_router(settings_router.router)
 
 
+def _ctx(request: Request, **extra) -> dict:
+    """Build template context including the HA Ingress base path."""
+    ingress_path = request.headers.get("X-Ingress-Path", "").rstrip("/")
+    return {"request": request, "ingress_path": ingress_path, **extra}
+
+
 # Frontend page routes
 @app.get("/", response_class=HTMLResponse)
 async def page_dashboard(request: Request):
-    return templates.TemplateResponse("pages/dashboard.html", {"request": request})
+    return templates.TemplateResponse("pages/dashboard.html", _ctx(request))
 
 
 @app.get("/owners", response_class=HTMLResponse)
 async def page_owners(request: Request):
-    return templates.TemplateResponse("pages/owners.html", {"request": request})
+    return templates.TemplateResponse("pages/owners.html", _ctx(request))
 
 
 @app.get("/groups", response_class=HTMLResponse)
 async def page_groups(request: Request):
-    return templates.TemplateResponse("pages/groups.html", {"request": request})
+    return templates.TemplateResponse("pages/groups.html", _ctx(request))
 
 
 @app.get("/messages", response_class=HTMLResponse)
 async def page_messages(request: Request):
-    return templates.TemplateResponse("pages/messages.html", {"request": request})
+    return templates.TemplateResponse("pages/messages.html", _ctx(request))
 
 
 @app.get("/tasks", response_class=HTMLResponse)
 async def page_tasks(request: Request):
-    return templates.TemplateResponse("pages/tasks.html", {"request": request})
+    return templates.TemplateResponse("pages/tasks.html", _ctx(request))
 
 
 @app.get("/appointments", response_class=HTMLResponse)
 async def page_appointments(request: Request):
-    return templates.TemplateResponse("pages/appointments.html", {"request": request})
+    return templates.TemplateResponse("pages/appointments.html", _ctx(request))
 
 
 @app.get("/settings", response_class=HTMLResponse)
-async def page_settings_redirect():
-    return RedirectResponse("/settings/whatsapp")
+async def page_settings_redirect(request: Request):
+    ingress = request.headers.get("X-Ingress-Path", "").rstrip("/")
+    return RedirectResponse(f"{ingress}/settings/whatsapp")
 
 
 @app.get("/settings/whatsapp", response_class=HTMLResponse)
 async def page_settings_whatsapp(request: Request):
-    return templates.TemplateResponse("pages/settings_whatsapp.html", {"request": request})
+    return templates.TemplateResponse("pages/settings_whatsapp.html", _ctx(request))
 
 
 @app.get("/settings/ai", response_class=HTMLResponse)
 async def page_settings_ai(request: Request):
-    return templates.TemplateResponse("pages/settings_ai.html", {"request": request})
+    return templates.TemplateResponse("pages/settings_ai.html", _ctx(request))
 
 
 @app.get("/settings/o365", response_class=HTMLResponse)
 async def page_settings_o365(request: Request):
-    return templates.TemplateResponse("pages/settings_o365.html", {"request": request})
+    return templates.TemplateResponse("pages/settings_o365.html", _ctx(request))
 
 
 @app.get("/health")

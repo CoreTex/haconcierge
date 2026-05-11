@@ -46,7 +46,7 @@
   });
 
   async function toggleMonitor(id, monitored) {
-    await fetch(`/api/whatsapp/groups/${id}`, {
+    await apiFetch(`/api/whatsapp/groups/${id}`, {
       method: 'PUT', headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({monitored})
     });
@@ -56,7 +56,7 @@
 
   async function leaveGroup(id, name) {
     if (!confirm(`Aus Gruppe "${name}" austreten? Dies kann nicht rückgängig gemacht werden.`)) return;
-    const resp = await fetch(`/api/whatsapp/groups/${id}/leave`, {method: 'POST'});
+    const resp = await apiFetch(`/api/whatsapp/groups/${id}/leave`, {method: 'POST'});
     const data = await resp.json();
     if (data.success) {
       htmx.ajax('GET', '/api/whatsapp/groups', {target: '#groups-list', swap: 'innerHTML'});

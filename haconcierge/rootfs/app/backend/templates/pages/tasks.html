@@ -10,7 +10,7 @@
 </div>
 <script>
   // Load tasks via dashboard API until dedicated endpoint is added
-  fetch('/api/dashboard').then(r => r.json()).then(data => {
+  apiFetch('/api/dashboard').then(r => r.json()).then(data => {
     const container = document.getElementById('tasks-container');
     const tasks = data.recent_tasks;
     container.innerHTML = tasks.length

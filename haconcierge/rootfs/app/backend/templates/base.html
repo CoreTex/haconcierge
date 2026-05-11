@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>HAConcierge</title>
+  <!-- HA Ingress base path: all relative URLs resolve through the proxy -->
+  <base href="{{ ingress_path }}/">
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/htmx.org@2.0.3"></script>
   <script src="https://unpkg.com/htmx.org@2.0.3/dist/ext/json-enc.js"></script>
@@ -22,6 +24,26 @@
   </style>
   <script>
     tailwind.config = { darkMode: 'class', theme: { extend: {} } }
+
+    // ── HA Ingress fix ────────────────────────────────────────────────────────
+    // The <base> tag makes relative hrefs work, but htmx and fetch() use the
+    // DOM base only partially. We intercept both here.
+    const INGRESS = "{{ ingress_path }}";   // e.g. "/9e6d9407_haconcierge"
+
+    // htmx: prefix every request path with the ingress base so HA can proxy it
+    document.addEventListener('htmx:configRequest', function(evt) {
+      const path = evt.detail.path;
+      if (INGRESS && !path.startsWith(INGRESS)) {
+        evt.detail.path = INGRESS + (path.startsWith('/') ? path : '/' + path);
+      }
+    });
+
+    // fetch() wrapper – use instead of raw fetch() in inline scripts
+    function apiFetch(path, opts) {
+      const url = INGRESS ? INGRESS + path : path;
+      return fetch(url, opts);
+    }
+
     function showToast(msg, type='success') {
       const t = document.createElement('div');
       t.className = `fixed top-4 right-4 z-50 px-4 py-3 rounded-lg text-sm font-medium shadow-lg transition-all ${type==='success'?'bg-green-800 text-green-100':'bg-red-800 text-red-100'}`;
@@ -29,10 +51,10 @@
       document.body.appendChild(t);
       setTimeout(() => t.remove(), 3500);
     }
-    document.addEventListener('htmx:responseError', e => showToast('Fehler: ' + e.detail.xhr.responseText, 'error'));
+    document.addEventListener('htmx:responseError', e => showToast('Fehler: ' + e.detail.xhr.status, 'error'));
   </script>
 </head>
-<body class="h-full text-white" hx-boost="true">
+<body class="h-full text-white">
 <div class="flex h-screen">
   <!-- Sidebar -->
   <aside class="w-56 bg-gray-900 border-r border-gray-800 flex flex-col p-4 gap-1 shrink-0">
@@ -41,31 +63,31 @@
       <span class="font-bold text-lg text-white">HAConcierge</span>
     </div>
     <nav class="flex-1 flex flex-col gap-1">
-      <a href="/" class="nav-link {% if page == 'dashboard' %}active{% endif %}">
+      <a href="{{ ingress_path }}/" class="nav-link {% if page == 'dashboard' %}active{% endif %}">
         <span>📊</span> Dashboard
       </a>
-      <a href="/owners" class="nav-link {% if page == 'owners' %}active{% endif %}">
+      <a href="{{ ingress_path }}/owners" class="nav-link {% if page == 'owners' %}active{% endif %}">
         <span>👨‍👩‍👧‍👦</span> Besitzer
       </a>
-      <a href="/groups" class="nav-link {% if page == 'groups' %}active{% endif %}">
+      <a href="{{ ingress_path }}/groups" class="nav-link {% if page == 'groups' %}active{% endif %}">
         <span>💬</span> Gruppen
       </a>
-      <a href="/messages" class="nav-link {% if page == 'messages' %}active{% endif %}">
+      <a href="{{ ingress_path }}/messages" class="nav-link {% if page == 'messages' %}active{% endif %}">
         <span>📨</span> Nachrichten
       </a>
-      <a href="/tasks" class="nav-link {% if page == 'tasks' %}active{% endif %}">
+      <a href="{{ ingress_path }}/tasks" class="nav-link {% if page == 'tasks' %}active{% endif %}">
         <span>✅</span> Aufgaben
       </a>
-      <a href="/appointments" class="nav-link {% if page == 'appointments' %}active{% endif %}">
+      <a href="{{ ingress_path }}/appointments" class="nav-link {% if page == 'appointments' %}active{% endif %}">
         <span>📅</span> Termine
       </a>
       <div class="mt-auto border-t border-gray-800 pt-2">
-        <a href="/settings/whatsapp" class="nav-link {% if page == 'settings' %}active{% endif %}">
+        <a href="{{ ingress_path }}/settings/whatsapp" class="nav-link {% if page == 'settings' %}active{% endif %}">
           <span>⚙️</span> Einstellungen
         </a>
       </div>
     </nav>
-    <!-- WA Status indicator -->
+    <!-- WA connection status (relative URL, resolved via htmx interceptor) -->
     <div id="wa-status" hx-get="/api/whatsapp/status" hx-trigger="load, every 30s" hx-swap="innerHTML"
          class="px-3 py-2 text-xs text-gray-500">
       Verbindung wird geprüft...

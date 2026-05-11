@@ -4,9 +4,9 @@
 <div class="max-w-2xl mx-auto">
   <h1 class="text-2xl font-bold mb-2">Einstellungen – Microsoft 365</h1>
   <div class="flex gap-4 mb-6 border-b border-gray-800 pb-0">
-    <a href="/settings/whatsapp" class="pb-3 border-b-2 border-transparent text-gray-400 hover:text-white text-sm">WhatsApp</a>
-    <a href="/settings/ai" class="pb-3 border-b-2 border-transparent text-gray-400 hover:text-white text-sm">KI / AI</a>
-    <a href="/settings/o365" class="pb-3 border-b-2 border-blue-500 text-blue-400 text-sm font-medium">Microsoft 365</a>
+    <a href="{{ ingress_path }}/settings/whatsapp" class="pb-3 border-b-2 border-transparent text-gray-400 hover:text-white text-sm">WhatsApp</a>
+    <a href="{{ ingress_path }}/settings/ai" class="pb-3 border-b-2 border-transparent text-gray-400 hover:text-white text-sm">KI / AI</a>
+    <a href="{{ ingress_path }}/settings/o365" class="pb-3 border-b-2 border-blue-500 text-blue-400 text-sm font-medium">Microsoft 365</a>
   </div>
 
   <div class="card mb-4 bg-blue-950 border-blue-900">
@@ -69,7 +69,7 @@
   const enabledVal = document.getElementById('o365-enabled-val');
   enabledCb.addEventListener('change', () => enabledVal.value = enabledCb.checked ? 'true' : 'false');
 
-  fetch('/api/settings').then(r => r.json()).then(s => {
+  apiFetch('/api/settings').then(r => r.json()).then(s => {
     enabledCb.checked = s.o365_enabled === 'true';
     enabledVal.value = s.o365_enabled === 'true' ? 'true' : 'false';
     document.getElementById('o365-tenant').value = s.o365_tenant_id || '';
