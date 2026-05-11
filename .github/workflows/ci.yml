@@ -55,8 +55,12 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       # ghcr.io requires all-lowercase repository names
-      - name: Set lowercase image owner
-        run: echo "IMAGE_OWNER=$(echo ${GITHUB_REPOSITORY_OWNER} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+      - name: Set image metadata
+        run: |
+          echo "IMAGE_OWNER=$(echo ${GITHUB_REPOSITORY_OWNER} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+          # Read version from config.yaml so the image tag matches what HA Supervisor expects
+          VERSION=$(grep '^version:' haconcierge/config.yaml | sed 's/version:[[:space:]]*"//;s/"//' | tr -d '[:space:]')
+          echo "ADDON_VERSION=${VERSION}" >> $GITHUB_ENV
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
@@ -68,4 +72,4 @@ jobs:
           build-args: BUILD_FROM=python:3.12-alpine
           tags: |
             ghcr.io/${{ env.IMAGE_OWNER }}/haconcierge-${{ matrix.arch }}:latest
-            ghcr.io/${{ env.IMAGE_OWNER }}/haconcierge-${{ matrix.arch }}:${{ github.sha }}
+            ghcr.io/${{ env.IMAGE_OWNER }}/haconcierge-${{ matrix.arch }}:${{ env.ADDON_VERSION }}
