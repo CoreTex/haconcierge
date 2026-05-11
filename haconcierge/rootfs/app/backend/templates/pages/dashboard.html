@@ -2,73 +2,112 @@
 {% set page = "dashboard" %}
 {% block content %}
 <div class="max-w-5xl mx-auto">
-  <h1 class="text-2xl font-bold mb-6">Dashboard</h1>
+  <div class="flex items-center justify-between mb-8">
+    <h1 class="text-2xl font-bold">Dashboard</h1>
+    <button onclick="loadDashboard()" class="btn-secondary text-xs px-3 py-1.5">↻ Aktualisieren</button>
+  </div>
 
   <!-- Stats grid -->
-  <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8"
-       hx-get="/api/dashboard" hx-trigger="load, every 60s" hx-swap="innerHTML" hx-target="#stats-area">
-  </div>
-  <div id="stats-area" class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8"
-       hx-get="/api/dashboard" hx-trigger="load, every 60s">
-    <div class="card animate-pulse h-24"></div>
-    <div class="card animate-pulse h-24"></div>
-    <div class="card animate-pulse h-24"></div>
+  <div id="stats-grid" class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
+    <div class="stat-card skeleton h-24"></div>
+    <div class="stat-card skeleton h-24"></div>
+    <div class="stat-card skeleton h-24"></div>
+    <div class="stat-card skeleton h-24"></div>
+    <div class="stat-card skeleton h-24"></div>
+    <div class="stat-card skeleton h-24"></div>
   </div>
 
   <div class="grid md:grid-cols-2 gap-6">
     <!-- Recent Tasks -->
     <div class="card">
-      <h2 class="font-semibold mb-4 text-lg">Offene Aufgaben</h2>
-      <div hx-get="/api/dashboard" hx-trigger="load" hx-swap="innerHTML" hx-target="#recent-tasks">
-        <div class="text-gray-500 text-sm">Laden...</div>
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="font-semibold">Offene Aufgaben</h2>
+        <a href="{{ ingress_path }}/tasks" class="text-xs text-blue-400 hover:text-blue-300">Alle →</a>
       </div>
-      <div id="recent-tasks"></div>
+      <div id="recent-tasks">
+        <div class="skeleton h-4 mb-3 rounded"></div>
+        <div class="skeleton h-4 mb-3 w-3/4 rounded"></div>
+        <div class="skeleton h-4 w-1/2 rounded"></div>
+      </div>
     </div>
 
     <!-- Upcoming Appointments -->
     <div class="card">
-      <h2 class="font-semibold mb-4 text-lg">Nächste Termine</h2>
-      <div id="upcoming-appts" hx-get="/api/dashboard" hx-trigger="load" hx-swap="innerHTML">
-        <div class="text-gray-500 text-sm">Laden...</div>
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="font-semibold">Nächste Termine</h2>
+        <a href="{{ ingress_path }}/appointments" class="text-xs text-blue-400 hover:text-blue-300">Alle →</a>
+      </div>
+      <div id="upcoming-appts">
+        <div class="skeleton h-4 mb-3 rounded"></div>
+        <div class="skeleton h-4 mb-3 w-3/4 rounded"></div>
+        <div class="skeleton h-4 w-1/2 rounded"></div>
       </div>
     </div>
   </div>
 </div>
 
 <script>
-  document.addEventListener('htmx:afterRequest', function(e) {
-    if (e.detail.pathInfo.requestPath !== '/api/dashboard') return;
-    const data = JSON.parse(e.detail.xhr.responseText);
-    const stats = data.stats;
+  async function loadDashboard() {
+    try {
+      const r = await apiFetch('/api/dashboard');
+      if (!r.ok) { console.error('Dashboard API error:', r.status); return; }
+      const data = await r.json();
+      const s = data.stats || {};
 
-    document.getElementById('stats-area').innerHTML = `
-      <div class="card"><p class="text-3xl font-bold text-blue-400">${stats.messages_this_week}</p><p class="text-gray-400 text-sm mt-1">Nachrichten (7 Tage)</p></div>
-      <div class="card"><p class="text-3xl font-bold text-yellow-400">${stats.open_tasks}</p><p class="text-gray-400 text-sm mt-1">Offene Aufgaben</p></div>
-      <div class="card"><p class="text-3xl font-bold text-green-400">${stats.upcoming_appointments}</p><p class="text-gray-400 text-sm mt-1">Kommende Termine</p></div>
-      <div class="card"><p class="text-3xl font-bold text-purple-400">${stats.keyword_hits_week}</p><p class="text-gray-400 text-sm mt-1">Keywords (7 Tage)</p></div>
-      <div class="card"><p class="text-3xl font-bold text-white">${stats.active_owners}</p><p class="text-gray-400 text-sm mt-1">Aktive Besitzer</p></div>
-      <div class="card"><p class="text-3xl font-bold text-gray-300">${stats.total_messages}</p><p class="text-gray-400 text-sm mt-1">Nachrichten gesamt</p></div>
-    `;
+      document.getElementById('stats-grid').innerHTML = `
+        <div class="stat-card">
+          <p class="text-3xl font-bold text-blue-400">${s.messages_this_week ?? 0}</p>
+          <p class="text-gray-400 text-sm mt-1">Nachrichten diese Woche</p>
+        </div>
+        <div class="stat-card">
+          <p class="text-3xl font-bold text-yellow-400">${s.open_tasks ?? 0}</p>
+          <p class="text-gray-400 text-sm mt-1">Offene Aufgaben</p>
+        </div>
+        <div class="stat-card">
+          <p class="text-3xl font-bold text-green-400">${s.upcoming_appointments ?? 0}</p>
+          <p class="text-gray-400 text-sm mt-1">Kommende Termine</p>
+        </div>
+        <div class="stat-card">
+          <p class="text-3xl font-bold text-purple-400">${s.keyword_hits_week ?? 0}</p>
+          <p class="text-gray-400 text-sm mt-1">Keywords erkannt</p>
+        </div>
+        <div class="stat-card">
+          <p class="text-3xl font-bold text-white">${s.active_owners ?? 0}</p>
+          <p class="text-gray-400 text-sm mt-1">Aktive Besitzer</p>
+        </div>
+        <div class="stat-card">
+          <p class="text-3xl font-bold text-gray-400">${s.total_messages ?? 0}</p>
+          <p class="text-gray-400 text-sm mt-1">Nachrichten gesamt</p>
+        </div>
+      `;
 
-    const taskHtml = data.recent_tasks.length
-      ? data.recent_tasks.map(t => `
-        <div class="flex items-center justify-between py-2 border-b border-gray-800 last:border-0">
-          <span class="text-sm truncate">${t.title}</span>
-          <span class="badge-yellow ml-2 shrink-0">${t.status}</span>
-        </div>`).join('')
-      : '<p class="text-gray-500 text-sm">Keine offenen Aufgaben</p>';
-    document.getElementById('recent-tasks').innerHTML = taskHtml;
+      const tasks = data.recent_tasks || [];
+      document.getElementById('recent-tasks').innerHTML = tasks.length
+        ? tasks.map(t => `
+          <div class="flex items-center justify-between py-2.5 border-b border-gray-800 last:border-0">
+            <span class="text-sm text-gray-200 truncate mr-3">${t.title}</span>
+            <span class="badge-yellow shrink-0">${t.status}</span>
+          </div>`).join('')
+        : `<div class="text-center py-6">
+            <p class="text-gray-500 text-sm">Keine offenen Aufgaben</p>
+           </div>`;
 
-    const apptHtml = data.upcoming_appointments.length
-      ? data.upcoming_appointments.map(a => `
-        <div class="flex items-center justify-between py-2 border-b border-gray-800 last:border-0">
-          <div>
-            <p class="text-sm">${a.title}</p>
-            <p class="text-xs text-gray-500">${new Date(a.start_time).toLocaleString('de-DE')}</p>
-          </div>
-        </div>`).join('')
-      : '<p class="text-gray-500 text-sm">Keine Termine</p>';
-    document.getElementById('upcoming-appts').innerHTML = apptHtml;
-  });
+      const appts = data.upcoming_appointments || [];
+      document.getElementById('upcoming-appts').innerHTML = appts.length
+        ? appts.map(a => `
+          <div class="py-2.5 border-b border-gray-800 last:border-0">
+            <p class="text-sm text-gray-200">${a.title}</p>
+            <p class="text-xs text-gray-500 mt-0.5">${new Date(a.start_time).toLocaleString('de-DE')}</p>
+          </div>`).join('')
+        : `<div class="text-center py-6">
+            <p class="text-gray-500 text-sm">Keine Termine in Kürze</p>
+           </div>`;
+    } catch(err) {
+      console.error('Dashboard load failed:', err);
+    }
+  }
+
+  loadDashboard();
+  setInterval(loadDashboard, 60000);
 </script>
 {% endblock %}

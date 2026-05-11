@@ -2,27 +2,52 @@
 {% set page = "tasks" %}
 {% block content %}
 <div class="max-w-4xl mx-auto">
-  <h1 class="text-2xl font-bold mb-6">Aufgaben</h1>
-  <div id="tasks-container"
-       hx-get="/api/dashboard" hx-trigger="load" hx-swap="none">
-    <div class="text-gray-500 text-sm">Lade Aufgaben...</div>
+  <div class="flex items-center justify-between mb-6">
+    <h1 class="text-2xl font-bold">Aufgaben</h1>
+    <button onclick="loadTasks()" class="btn-secondary text-xs px-3 py-1.5">↻</button>
+  </div>
+  <div id="tasks-container" class="space-y-3">
+    <div class="card skeleton h-16"></div>
+    <div class="card skeleton h-16"></div>
+    <div class="card skeleton h-16"></div>
   </div>
 </div>
+
 <script>
-  // Load tasks via dashboard API until dedicated endpoint is added
-  apiFetch('/api/dashboard').then(r => r.json()).then(data => {
-    const container = document.getElementById('tasks-container');
-    const tasks = data.recent_tasks;
-    container.innerHTML = tasks.length
-      ? `<div class="space-y-3">` + tasks.map(t => `
-        <div class="card flex items-center justify-between">
-          <div>
-            <p class="font-medium">${t.title}</p>
-            ${t.due_date ? `<p class="text-xs text-gray-400">Fällig: ${new Date(t.due_date).toLocaleDateString('de-DE')}</p>` : ''}
+  async function loadTasks() {
+    try {
+      const r = await apiFetch('/api/dashboard');
+      if (!r.ok) throw new Error(r.status);
+      const data = await r.json();
+      const tasks = data.recent_tasks || [];
+      const container = document.getElementById('tasks-container');
+
+      if (!tasks.length) {
+        container.innerHTML = `<div class="card text-center py-12">
+          <p class="text-4xl mb-3">✅</p>
+          <p class="text-gray-400 font-medium">Keine offenen Aufgaben</p>
+          <p class="text-gray-600 text-sm mt-1">Aufgaben werden aus WhatsApp-Nachrichten extrahiert</p>
+        </div>`;
+        return;
+      }
+
+      container.innerHTML = tasks.map(t => `
+        <div class="card-hover">
+          <div class="flex items-start justify-between gap-4">
+            <div class="flex-1 min-w-0">
+              <p class="font-medium text-sm text-gray-200">${t.title}</p>
+              ${t.due_date ? `<p class="text-xs text-gray-500 mt-1">Fällig: ${new Date(t.due_date).toLocaleDateString('de-DE')}</p>` : ''}
+              ${t.owner_name ? `<p class="text-xs text-gray-600 mt-0.5">Besitzer: ${t.owner_name}</p>` : ''}
+            </div>
+            <span class="${t.status === 'open' ? 'badge-yellow' : 'badge-green'}">${t.status}</span>
           </div>
-          <span class="badge-${t.status === 'open' ? 'yellow' : 'green'}">${t.status}</span>
-        </div>`).join('') + `</div>`
-      : '<div class="card text-gray-500 text-center py-10">Keine Aufgaben</div>';
-  });
+        </div>
+      `).join('');
+    } catch(err) {
+      console.error('loadTasks:', err);
+    }
+  }
+
+  loadTasks();
 </script>
 {% endblock %}

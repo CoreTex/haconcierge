@@ -4,69 +4,86 @@
 <div class="max-w-3xl mx-auto">
   <div class="flex items-center justify-between mb-6">
     <h1 class="text-2xl font-bold">WhatsApp Gruppen</h1>
-    <button class="btn-secondary" onclick="syncGroups()">↻ Synchronisieren</button>
+    <button class="btn-secondary" onclick="loadGroups(true)">↻ Synchronisieren</button>
   </div>
 
-  <div id="groups-list" hx-get="/api/whatsapp/groups" hx-trigger="load" hx-swap="innerHTML">
-    <div class="text-gray-500 text-sm">Lade Gruppen...</div>
+  <div id="groups-list" class="space-y-3">
+    <div class="card skeleton h-20"></div>
+    <div class="card skeleton h-20"></div>
+    <div class="card skeleton h-20"></div>
   </div>
 </div>
 
 <script>
-  document.addEventListener('htmx:afterRequest', function(e) {
-    if (!e.detail.pathInfo.requestPath.includes('/api/whatsapp/groups')) return;
-    if (e.detail.requestConfig.verb !== 'get') return;
-    try {
-      const groups = JSON.parse(e.detail.xhr.responseText);
-      document.getElementById('groups-list').innerHTML = groups.length ? groups.map(g => `
-        <div class="card mb-3 flex items-center justify-between">
-          <div>
-            <div class="flex items-center gap-2">
-              <span class="font-medium">${g.name}</span>
+  function renderGroups(groups) {
+    const container = document.getElementById('groups-list');
+    if (!groups.length) {
+      container.innerHTML = `<div class="card text-center py-12">
+        <p class="text-4xl mb-3">💬</p>
+        <p class="text-gray-400 font-medium">Keine Gruppen gefunden</p>
+        <p class="text-gray-600 text-sm mt-1">Klicke auf "Synchronisieren" um Gruppen vom WhatsApp-Konto zu laden</p>
+        <button onclick="loadGroups(true)" class="btn-primary mt-4 text-sm">↻ Jetzt synchronisieren</button>
+      </div>`;
+      return;
+    }
+    container.innerHTML = groups.map(g => `
+      <div class="card-hover">
+        <div class="flex items-center justify-between gap-4">
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="font-medium text-sm">${g.name}</span>
               ${g.monitored
                 ? '<span class="badge-green">überwacht</span>'
                 : '<span class="badge-red">pausiert</span>'}
             </div>
-            <p class="text-xs text-gray-500 mt-1">${g.participant_count} Teilnehmer · ${g.jid}</p>
-            ${g.last_seen ? `<p class="text-xs text-gray-600">Zuletzt: ${new Date(g.last_seen).toLocaleString('de-DE')}</p>` : ''}
+            <p class="text-xs text-gray-500 mt-1">${g.participant_count} Teilnehmer</p>
+            ${g.last_seen ? `<p class="text-xs text-gray-600 mt-0.5">Zuletzt: ${new Date(g.last_seen).toLocaleString('de-DE')}</p>` : ''}
           </div>
           <div class="flex gap-2 shrink-0">
-            <button class="btn-secondary text-xs"
-                    onclick="toggleMonitor(${g.id}, ${!g.monitored})">
-              ${g.monitored ? '⏸ Pausieren' : '▶ Aktivieren'}
+            <button class="btn-secondary text-xs px-3 py-1.5" onclick="toggleMonitor(${g.id}, ${!g.monitored})">
+              ${g.monitored ? '⏸ Pause' : '▶ Aktiv'}
             </button>
-            <button class="btn-danger text-xs"
-                    onclick="leaveGroup(${g.id}, '${g.name}')">
-              Austreten
-            </button>
+            <button class="btn-danger" onclick="leaveGroup(${g.id}, '${g.name.replace(/'/g, "\\'")}')">Austreten</button>
           </div>
         </div>
-      `).join('') : '<div class="card text-gray-500 text-center py-10">Keine Gruppen gefunden. Synchronisieren?</div>';
-    } catch(e) { console.error(e); }
-  });
+      </div>
+    `).join('');
+  }
+
+  async function loadGroups(showFeedback = false) {
+    if (showFeedback) showToast('Gruppen werden synchronisiert...');
+    try {
+      const r = await apiFetch('/api/whatsapp/groups');
+      if (!r.ok) throw new Error(r.status);
+      const groups = await r.json();
+      renderGroups(groups);
+    } catch(err) {
+      console.error('loadGroups:', err);
+      document.getElementById('groups-list').innerHTML = `<div class="card text-center py-8">
+        <p class="text-gray-500 text-sm">Fehler beim Laden. Ist WhatsApp verbunden?</p>
+        <button onclick="loadGroups(true)" class="btn-secondary mt-3 text-xs">Erneut versuchen</button>
+      </div>`;
+    }
+  }
 
   async function toggleMonitor(id, monitored) {
-    await apiFetch(`/api/whatsapp/groups/${id}`, {
-      method: 'PUT', headers: {'Content-Type': 'application/json'},
+    const r = await apiFetch(`/api/whatsapp/groups/${id}`, {
+      method: 'PUT',
+      headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({monitored})
     });
-    htmx.ajax('GET', '/api/whatsapp/groups', {target: '#groups-list', swap: 'innerHTML'});
-    showToast(monitored ? 'Gruppe wird überwacht' : 'Gruppe pausiert');
+    if (r.ok) { showToast(monitored ? 'Gruppe wird überwacht' : 'Gruppe pausiert'); loadGroups(); }
+    else showToast('Fehler', 'error');
   }
 
   async function leaveGroup(id, name) {
-    if (!confirm(`Aus Gruppe "${name}" austreten? Dies kann nicht rückgängig gemacht werden.`)) return;
-    const resp = await apiFetch(`/api/whatsapp/groups/${id}/leave`, {method: 'POST'});
-    const data = await resp.json();
-    if (data.success) {
-      htmx.ajax('GET', '/api/whatsapp/groups', {target: '#groups-list', swap: 'innerHTML'});
-      showToast(`Aus "${name}" ausgetreten`);
-    } else { showToast('Fehler beim Austreten', 'error'); }
+    if (!confirm(`Aus Gruppe "${name}" austreten?\nDies kann nicht rückgängig gemacht werden.`)) return;
+    const r = await apiFetch(`/api/whatsapp/groups/${id}/leave`, {method: 'POST'});
+    const data = await r.json().catch(() => ({}));
+    if (data.success) { showToast(`Aus "${name}" ausgetreten`); loadGroups(); }
+    else showToast('Fehler beim Austreten', 'error');
   }
 
-  function syncGroups() {
-    htmx.ajax('GET', '/api/whatsapp/groups', {target: '#groups-list', swap: 'innerHTML'});
-    showToast('Gruppen werden synchronisiert...');
-  }
+  loadGroups();
 </script>
 {% endblock %}

@@ -2,35 +2,67 @@
 {% set page = "messages" %}
 {% block content %}
 <div class="max-w-4xl mx-auto">
-  <h1 class="text-2xl font-bold mb-6">Nachrichten</h1>
-  <div id="messages-container" class="space-y-3"
-       hx-get="/api/whatsapp/messages?limit=50" hx-trigger="load" hx-swap="innerHTML">
-    <div class="text-gray-500 text-sm">Lade Nachrichten...</div>
+  <div class="flex items-center justify-between mb-6">
+    <h1 class="text-2xl font-bold">Nachrichten</h1>
+    <div class="flex items-center gap-3">
+      <select id="limit-select" onchange="loadMessages()" class="input w-auto text-xs py-1.5">
+        <option value="25">25 Nachrichten</option>
+        <option value="50" selected>50 Nachrichten</option>
+        <option value="100">100 Nachrichten</option>
+      </select>
+      <button onclick="loadMessages()" class="btn-secondary text-xs px-3 py-1.5">↻</button>
+    </div>
+  </div>
+
+  <div id="messages-container" class="space-y-3">
+    <div class="card skeleton h-16"></div>
+    <div class="card skeleton h-16"></div>
+    <div class="card skeleton h-16"></div>
   </div>
 </div>
+
 <script>
-  document.addEventListener('htmx:afterRequest', function(e) {
-    if (!e.detail.pathInfo.requestPath.includes('/api/whatsapp/messages')) return;
+  async function loadMessages() {
+    const limit = document.getElementById('limit-select').value;
     try {
-      const messages = JSON.parse(e.detail.xhr.responseText);
-      document.getElementById('messages-container').innerHTML = messages.length
-        ? messages.map(m => `
-          <div class="card">
-            <div class="flex items-start justify-between gap-3">
-              <div class="flex-1 min-w-0">
-                <div class="flex items-center gap-2 mb-1">
-                  <span class="font-medium text-sm">${m.sender_name || m.chat_jid}</span>
-                  ${m.is_group ? '<span class="badge-blue text-xs">Gruppe</span>' : '<span class="badge-green text-xs">DM</span>'}
-                  ${m.processed ? '<span class="badge-green text-xs">✓ verarbeitet</span>' : '<span class="badge-yellow text-xs">ausstehend</span>'}
-                </div>
-                <p class="text-sm text-gray-300 break-words">${m.content}</p>
-                ${m.ai_result?.summary ? `<p class="text-xs text-gray-500 mt-1">KI: ${m.ai_result.summary}</p>` : ''}
+      const r = await apiFetch(`/api/whatsapp/messages?limit=${limit}`);
+      if (!r.ok) throw new Error(r.status);
+      const messages = await r.json();
+      const container = document.getElementById('messages-container');
+
+      if (!messages.length) {
+        container.innerHTML = `<div class="card text-center py-12">
+          <p class="text-4xl mb-3">📨</p>
+          <p class="text-gray-400 font-medium">Noch keine Nachrichten empfangen</p>
+          <p class="text-gray-600 text-sm mt-1">Sobald WhatsApp verbunden ist, erscheinen hier eingehende Nachrichten</p>
+        </div>`;
+        return;
+      }
+
+      container.innerHTML = messages.map(m => `
+        <div class="card-hover">
+          <div class="flex items-start gap-3">
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 flex-wrap mb-1.5">
+                <span class="font-medium text-sm text-gray-200">${m.sender_name || m.chat_jid}</span>
+                ${m.is_group ? '<span class="badge-blue">Gruppe</span>' : '<span class="badge-green">DM</span>'}
+                ${m.processed ? '<span class="badge-green">✓ KI</span>' : ''}
               </div>
-              <span class="text-xs text-gray-600 shrink-0">${new Date(m.timestamp).toLocaleString('de-DE')}</span>
+              <p class="text-sm text-gray-300 leading-relaxed break-words">${m.content}</p>
+              ${m.ai_result?.summary ? `<p class="text-xs text-gray-500 mt-1.5 italic">KI: ${m.ai_result.summary}</p>` : ''}
             </div>
-          </div>`).join('')
-        : '<div class="card text-gray-500 text-center py-10">Keine Nachrichten</div>';
-    } catch(e) { console.error(e); }
-  });
+            <span class="text-xs text-gray-600 shrink-0 pt-0.5">${new Date(m.timestamp).toLocaleString('de-DE', {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'})}</span>
+          </div>
+        </div>
+      `).join('');
+    } catch(err) {
+      console.error('loadMessages:', err);
+      document.getElementById('messages-container').innerHTML = `<div class="card text-center py-8">
+        <p class="text-gray-500 text-sm">Fehler beim Laden der Nachrichten</p>
+      </div>`;
+    }
+  }
+
+  loadMessages();
 </script>
 {% endblock %}

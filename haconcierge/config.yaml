@@ -1,6 +1,6 @@
 ---
 name: HAConcierge
-version: "1.0.1"
+version: "1.0.2"
 slug: haconcierge
 description: "WhatsApp AI Concierge - Nachrichten, Termine und Aufgaben fuer Home Assistant"
 url: https://github.com/CoreTex/haconcierge
