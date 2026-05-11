@@ -3,7 +3,6 @@ import {
   useMultiFileAuthState,
   DisconnectReason,
   fetchLatestBaileysVersion,
-  makeInMemoryStore,
 } from '@whiskeysockets/baileys';
 import pino from 'pino';
 import path from 'path';
@@ -79,13 +78,7 @@ async function _connect(sessionDir, forwardMessage) {
         ? (msg.key.participant || '')
         : (msg.key.remoteJid || '');
 
-      let senderName = null;
-      try {
-        const contact = _socket.store?.contacts?.[senderJid];
-        senderName = contact?.pushname || contact?.name || null;
-      } catch {}
-
-      if (!senderName && msg.pushName) senderName = msg.pushName;
+      const senderName = msg.pushName || null;
 
       await forwardMessage({
         id: msg.key.id,
