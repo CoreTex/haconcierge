@@ -6,10 +6,10 @@ import {
 } from '@whiskeysockets/baileys';
 import pino from 'pino';
 import path from 'path';
+import { readdir, unlink } from 'fs/promises';
 
 const logger = pino({ level: 'warn' });
 
-// Bundled fallback in case WA version fetch fails (updated periodically)
 const FALLBACK_VERSION = [2, 3000, 1015901307];
 
 let _socket = null;
@@ -24,6 +24,15 @@ export async function createWASession(sessionDir, forwardMessage) {
   _sessionDir = sessionDir;
   _forwardMessage = forwardMessage;
   return _connect();
+}
+
+async function _clearCredentials() {
+  try {
+    const authDir = path.join(_sessionDir, 'baileys_auth');
+    const files = await readdir(authDir).catch(() => []);
+    await Promise.all(files.map(f => unlink(path.join(authDir, f)).catch(() => {})));
+    console.log('Cleared stale WA credentials');
+  } catch { /* ignore */ }
 }
 
 async function _connect() {
@@ -50,28 +59,32 @@ async function _connect() {
 
   _socket.ev.on('creds.update', saveCreds);
 
-  _socket.ev.on('connection.update', (update) => {
+  _socket.ev.on('connection.update', async (update) => {
     const { connection, lastDisconnect } = update;
 
     if (connection === 'open') {
       const phone = _socket.user?.id?.split(':')[0] || null;
       _connectionState = { connected: true, status: 'connected', phone };
       console.log('WhatsApp connected, phone:', phone);
+
     } else if (connection === 'close') {
       const code = lastDisconnect?.error?.output?.statusCode;
       const loggedOut = code === DisconnectReason.loggedOut;
-      _connectionState = {
-        connected: false,
-        status: loggedOut ? 'logged_out' : 'reconnecting',
-        phone: null,
-      };
+      _socket = null;
+
       if (loggedOut) {
-        console.log('Logged out from WhatsApp');
-        _socket = null;
+        // Stale or rejected credentials. Clear them and restart in fresh
+        // (unregistered) mode so OTP / pairing registration can proceed.
+        console.log('Session ended – clearing credentials and reconnecting fresh');
+        _connectionState = { connected: false, status: 'unregistered', phone: null };
+        await _clearCredentials();
+        setTimeout(_connect, 2000);
       } else {
         console.log('Connection closed, reconnecting in 5s...');
+        _connectionState = { connected: false, status: 'reconnecting', phone: null };
         setTimeout(_connect, 5000);
       }
+
     } else if (connection) {
       _connectionState = { connected: false, status: 'connecting', phone: null };
     }
@@ -108,23 +121,34 @@ async function _connect() {
   return _socket;
 }
 
-// ── Registration / pairing – operate on the single shared socket ──────────────
-// These only make sense when the socket is NOT yet authenticated (fresh install).
+// ── Registration / pairing ────────────────────────────────────────────────────
+// All operate on the single shared socket. The socket is always running:
+// if credentials exist → authenticates automatically;
+// if no credentials → stays in unregistered state ready for OTP/pairing.
 
 export async function requestOTPCode(phone) {
-  if (!_socket) throw new Error('Bridge not ready – call createWASession first');
+  if (!_socket) {
+    // Socket might be briefly null during reconnect cycle – wait up to 6s
+    await new Promise(resolve => setTimeout(resolve, 3000));
+    if (!_socket) await new Promise(resolve => setTimeout(resolve, 3000));
+  }
+  if (!_socket) throw new Error('Bridge socket not available. Please wait a moment and try again.');
   const clean = phone.replace(/[\s\-\+]/g, '');
   return _socket.requestRegistrationCode({ phoneNumber: clean, method: 'sms' });
 }
 
 export async function confirmOTPCode(code) {
-  if (!_socket) throw new Error('Bridge not ready');
+  if (!_socket) throw new Error('Bridge socket not available');
   const clean = code.replace(/\D/g, '');
   await _socket.register(clean);
 }
 
 export async function requestPairingCode(phone) {
-  if (!_socket) throw new Error('Bridge not ready');
+  if (!_socket) {
+    await new Promise(resolve => setTimeout(resolve, 3000));
+    if (!_socket) await new Promise(resolve => setTimeout(resolve, 3000));
+  }
+  if (!_socket) throw new Error('Bridge socket not available. Please wait a moment and try again.');
   const clean = phone.replace(/[\s\-\+]/g, '');
   const code = await _socket.requestPairingCode(clean);
   return code.match(/.{1,4}/g)?.join('-') || code;
