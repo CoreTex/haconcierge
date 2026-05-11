@@ -73,18 +73,20 @@ async function _connect() {
     } else if (connection === 'close') {
       const code = lastDisconnect?.error?.output?.statusCode;
       const loggedOut = code === DisconnectReason.loggedOut;
-      _socket = null;
 
       if (loggedOut) {
         // Stale or rejected credentials. Clear them and restart in fresh
         // (unregistered) mode so OTP / pairing registration can proceed.
-        console.log('Session ended – clearing credentials and reconnecting fresh');
+        _socket = null;
         _connectionState = { connected: false, status: 'unregistered', phone: null };
+        console.log('Session ended – clearing credentials and reconnecting fresh');
         await _clearCredentials();
         setTimeout(_connect, 2000);
       } else {
-        console.log('Connection closed, reconnecting in 5s...');
+        // Keep _socket non-null so requestRegistrationCode can be called during
+        // the reconnect window. _connect() will overwrite _socket when it runs.
         _connectionState = { connected: false, status: 'reconnecting', phone: null };
+        console.log('Connection closed, reconnecting in 5s...');
         setTimeout(_connect, 5000);
       }
 
