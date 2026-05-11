@@ -19,10 +19,10 @@
 
   <!-- Registration Section -->
   <div class="card mb-6">
-    <h2 class="font-semibold mb-1">WhatsApp Registrierung</h2>
+    <h2 class="font-semibold mb-1">WhatsApp verbinden</h2>
     <p class="text-sm text-gray-400 mb-4">
-      Gib deine Telefonnummer ein. WhatsApp sendet einen OTP-Code per SMS —
-      bei simquadrat kommt die SMS als E-Mail an.
+      Verbinde dein bestehendes WhatsApp-Konto per Pairing Code.
+      WhatsApp muss bereits auf deinem Gerät mit dieser Nummer eingerichtet sein.
     </p>
 
     <!-- Step 1: Enter phone -->
@@ -31,23 +31,23 @@
         <label class="text-xs text-gray-400 mb-1.5 block font-medium">Telefonnummer <span class="font-normal">(international, ohne +)</span></label>
         <input id="reg-phone" type="text" class="input" placeholder="491701234567">
       </div>
-      <button class="btn-primary" onclick="requestCode()">📱 OTP-Code per SMS anfordern</button>
+      <button class="btn-primary" onclick="requestPairing()">🔗 Pairing Code anfordern</button>
     </div>
 
-    <!-- Step 2: Enter OTP -->
-    <div id="reg-step-2" class="hidden space-y-3">
-      <div style="display:flex;align-items:center;gap:8px;padding:12px;background:rgba(20,83,45,0.2);border:1px solid rgba(22,101,52,0.4);border-radius:8px">
-        <span style="color:#4ade80">✓</span>
-        <p class="text-sm" style="color:#86efac">Code angefordert! Prüfe deine E-Mail von simquadrat.</p>
+    <!-- Step 2: Show pairing code -->
+    <div id="reg-step-2" class="hidden space-y-4">
+      <div id="pairing-code-display" style="font-family:monospace;font-size:2.25rem;letter-spacing:0.15em;text-align:center;padding:1.25rem;color:#93c5fd;background:#1f2937;border:1px solid #374151;border-radius:0.75rem"></div>
+      <div style="background:rgba(30,64,175,0.15);border:1px solid rgba(59,130,246,0.3);border-radius:8px;padding:12px">
+        <p class="text-sm font-medium mb-2" style="color:#93c5fd">So verwendest du den Code:</p>
+        <ol class="text-sm space-y-1 list-decimal list-inside" style="color:#94a3b8">
+          <li>Öffne WhatsApp auf deinem Handy</li>
+          <li>Einstellungen → Verknüpfte Geräte</li>
+          <li>„Gerät verknüpfen" → „Mit Telefonnummer verknüpfen"</li>
+          <li>Code eingeben</li>
+        </ol>
       </div>
-      <div>
-        <label class="text-xs text-gray-400 mb-1.5 block font-medium">OTP Code aus E-Mail</label>
-        <input id="reg-code" type="text" maxlength="8" class="input" placeholder="123456">
-      </div>
-      <div class="flex gap-3">
-        <button class="btn-primary" onclick="confirmCode()">Bestätigen</button>
-        <button class="btn-secondary text-xs" onclick="showStep(1)">Zurück</button>
-      </div>
+      <p class="text-xs text-gray-500 text-center">Code ist ~60 Sekunden gültig. Der Status oben aktualisiert sich automatisch.</p>
+      <button class="btn-secondary text-xs" onclick="showStep(1)">Zurück</button>
     </div>
   </div>
 
@@ -89,39 +89,23 @@
     } catch { /* bridge not ready */ }
   }
 
-  async function requestCode() {
+  function showStep(n) {
+    document.getElementById('reg-step-1').classList.toggle('hidden', n !== 1);
+    document.getElementById('reg-step-2').classList.toggle('hidden', n !== 2);
+  }
+
+  async function requestPairing() {
     const phone = document.getElementById('reg-phone').value.trim();
     if (!phone) return showToast('Bitte Telefonnummer eingeben', 'error');
-    const resp = await apiFetch('/api/whatsapp/register/request-code', {
+    const resp = await apiFetch('/api/whatsapp/pair/request-code', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({phone})
     });
     const data = await resp.json();
-    if (data.success !== false) {
-      document.getElementById('reg-step-1').classList.add('hidden');
-      document.getElementById('reg-step-2').classList.remove('hidden');
+    if (data.code) {
+      document.getElementById('pairing-code-display').textContent = data.code;
+      showStep(2);
     } else { showToast('Fehler: ' + (data.error || 'Unbekannt'), 'error'); }
-  }
-
-  async function confirmCode() {
-    const phone = document.getElementById('reg-phone').value.trim();
-    const code = document.getElementById('reg-code').value.trim();
-    const resp = await apiFetch('/api/whatsapp/register/confirm-code', {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({phone, code})
-    });
-    const data = await resp.json();
-    if (data.success) {
-      showToast('WhatsApp erfolgreich registriert!');
-      document.getElementById('reg-step-2').classList.add('hidden');
-      document.getElementById('reg-step-1').classList.remove('hidden');
-      refreshWAStatusCard();
-    } else { showToast('Fehler: ' + (data.error || 'Ungültiger Code'), 'error'); }
-  }
-
-  function showStep(n) {
-    document.getElementById('reg-step-1').classList.toggle('hidden', n !== 1);
-    document.getElementById('reg-step-2').classList.toggle('hidden', n !== 2);
   }
 
   async function disconnect() {
