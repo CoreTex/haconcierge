@@ -9,16 +9,16 @@
     <a href="{{ ingress_path }}/settings/o365" class="pb-3 border-b-2 border-blue-500 text-blue-400 text-sm font-medium">Microsoft 365</a>
   </div>
 
-  <div class="card mb-4 bg-blue-950 border-blue-900">
-    <h3 class="font-medium text-blue-300 mb-2">📋 Azure App-Registrierung</h3>
-    <ol class="text-xs text-blue-200 space-y-1 list-decimal pl-4">
+  <!-- Info box -->
+  <div style="background:rgba(23,37,84,0.6);border:1px solid rgba(30,64,175,0.4);border-radius:0.75rem;padding:1rem;margin-bottom:1rem">
+    <h3 style="font-weight:500;color:#93c5fd;margin-bottom:0.5rem">📋 Azure App-Registrierung</h3>
+    <ol style="font-size:0.75rem;color:#bfdbfe;line-height:1.6;padding-left:1.25rem;margin:0">
       <li>Azure Portal → Microsoft Entra ID → App-Registrierungen → Neue Registrierung</li>
       <li>Name: HAConcierge | Kontotyp: Nur diese Organisation</li>
       <li>Zertifikate &amp; Geheimnisse → Neuer geheimer Clientschlüssel</li>
-      <li>API-Berechtigungen hinzufügen: <code class="bg-blue-900 px-1 rounded">Calendars.ReadWrite</code> <code class="bg-blue-900 px-1 rounded">Tasks.ReadWrite</code> <code class="bg-blue-900 px-1 rounded">Group.ReadWrite.All</code> <code class="bg-blue-900 px-1 rounded">User.Read.All</code> (alle Anwendungsberechtigungen)</li>
+      <li>API-Berechtigungen: <code style="background:rgba(30,58,138,0.5);padding:1px 5px;border-radius:3px">Calendars.ReadWrite</code> <code style="background:rgba(30,58,138,0.5);padding:1px 5px;border-radius:3px">Tasks.ReadWrite</code> <code style="background:rgba(30,58,138,0.5);padding:1px 5px;border-radius:3px">Group.ReadWrite.All</code> <code style="background:rgba(30,58,138,0.5);padding:1px 5px;border-radius:3px">User.Read.All</code></li>
       <li>Administratoreinwilligung erteilen</li>
     </ol>
-    <a href="/docs/o365-setup" class="text-xs text-blue-400 underline mt-2 block">Ausführliche Anleitung →</a>
   </div>
 
   <div class="card">
@@ -26,56 +26,71 @@
       <h2 class="font-semibold">Microsoft 365 Konfiguration</h2>
       <label class="flex items-center gap-2 cursor-pointer">
         <input type="checkbox" id="o365-enabled" class="rounded">
-        <span class="text-sm">Aktiviert</span>
+        <span class="text-sm text-gray-300">Aktiviert</span>
       </label>
     </div>
 
-    <form id="o365-form" hx-put="/api/settings/o365" hx-ext="json-enc"
-          hx-on::after-request="showToast('O365-Einstellungen gespeichert')">
-      <input type="hidden" name="o365_enabled" id="o365-enabled-val" value="false">
-      <div class="space-y-4">
-        <div class="grid grid-cols-1 gap-4">
-          <div>
-            <label class="text-xs text-gray-400 mb-1 block">Tenant ID (Verzeichnis-ID)</label>
-            <input type="text" name="o365_tenant_id" id="o365-tenant" class="input" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
-          </div>
-          <div>
-            <label class="text-xs text-gray-400 mb-1 block">Client ID (Anwendungs-ID)</label>
-            <input type="text" name="o365_client_id" id="o365-client" class="input" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
-          </div>
-          <div>
-            <label class="text-xs text-gray-400 mb-1 block">Client Secret</label>
-            <input type="password" name="o365_client_secret" id="o365-secret" class="input" placeholder="Wird nicht angezeigt wenn gesetzt">
-          </div>
-          <div>
-            <label class="text-xs text-gray-400 mb-1 block">Gruppen E-Mail Alias</label>
-            <input type="email" name="o365_group_email" id="o365-group" class="input" placeholder="meinefamilie@firma.de">
-            <p class="text-xs text-gray-600 mt-1">E-Mail-Alias der O365-Gruppe (für Kalender)</p>
-          </div>
-          <div>
-            <label class="text-xs text-gray-400 mb-1 block">Planner Plan-ID</label>
-            <input type="text" name="o365_planner_plan_id" id="o365-plan" class="input" placeholder="Plan-ID aus dem Planner-URL">
-            <p class="text-xs text-gray-600 mt-1">Aus dem Planner-URL: /planner/plan/<strong>DIESE_ID</strong>/...</p>
-          </div>
-        </div>
+    <form id="o365-form" class="space-y-4">
+      <div>
+        <label class="text-xs text-gray-400 mb-1.5 block font-medium">Tenant ID (Verzeichnis-ID)</label>
+        <input type="text" name="o365_tenant_id" id="o365-tenant" class="input" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
       </div>
-      <button type="submit" class="btn-primary mt-5">Speichern</button>
+      <div>
+        <label class="text-xs text-gray-400 mb-1.5 block font-medium">Client ID (Anwendungs-ID)</label>
+        <input type="text" name="o365_client_id" id="o365-client" class="input" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+      </div>
+      <div>
+        <label class="text-xs text-gray-400 mb-1.5 block font-medium">Client Secret</label>
+        <input type="password" name="o365_client_secret" id="o365-secret" class="input" placeholder="Wird nicht angezeigt wenn gesetzt">
+      </div>
+      <div>
+        <label class="text-xs text-gray-400 mb-1.5 block font-medium">Gruppen E-Mail Alias</label>
+        <input type="email" name="o365_group_email" id="o365-group" class="input" placeholder="meinefamilie@firma.de">
+        <p class="text-xs text-gray-600 mt-1">E-Mail-Alias der O365-Gruppe (für Kalender)</p>
+      </div>
+      <div>
+        <label class="text-xs text-gray-400 mb-1.5 block font-medium">Planner Plan-ID</label>
+        <input type="text" name="o365_planner_plan_id" id="o365-plan" class="input" placeholder="Plan-ID aus dem Planner-URL">
+        <p class="text-xs text-gray-600 mt-1">Aus dem Planner-URL: /planner/plan/<strong>DIESE_ID</strong>/...</p>
+      </div>
+      <button type="submit" class="btn-primary">Speichern</button>
     </form>
   </div>
 </div>
 
 <script>
   const enabledCb = document.getElementById('o365-enabled');
-  const enabledVal = document.getElementById('o365-enabled-val');
-  enabledCb.addEventListener('change', () => enabledVal.value = enabledCb.checked ? 'true' : 'false');
 
   apiFetch('/api/settings').then(r => r.json()).then(s => {
     enabledCb.checked = s.o365_enabled === 'true';
-    enabledVal.value = s.o365_enabled === 'true' ? 'true' : 'false';
     document.getElementById('o365-tenant').value = s.o365_tenant_id || '';
     document.getElementById('o365-client').value = s.o365_client_id || '';
     document.getElementById('o365-group').value = s.o365_group_email || '';
     document.getElementById('o365-plan').value = s.o365_planner_plan_id || '';
+  });
+
+  document.getElementById('o365-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const btn = e.target.querySelector('[type=submit]');
+    btn.disabled = true;
+    try {
+      const r = await apiFetch('/api/settings/o365', {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          o365_enabled: enabledCb.checked ? 'true' : 'false',
+          o365_tenant_id: fd.get('o365_tenant_id'),
+          o365_client_id: fd.get('o365_client_id'),
+          o365_client_secret: fd.get('o365_client_secret'),
+          o365_group_email: fd.get('o365_group_email'),
+          o365_planner_plan_id: fd.get('o365_planner_plan_id'),
+        })
+      });
+      if (r.ok) showToast('O365-Einstellungen gespeichert');
+      else showToast('Fehler beim Speichern', 'error');
+    } catch { showToast('Netzwerkfehler', 'error'); }
+    btn.disabled = false;
   });
 </script>
 {% endblock %}

@@ -19,35 +19,33 @@
       Nur der von dir konfigurierte Server empfängt Daten.
     </p>
 
-    <form id="ai-form" hx-put="/api/settings/ai" hx-ext="json-enc"
-          hx-on::after-request="showToast('KI-Einstellungen gespeichert'); checkAIHealth()">
+    <form id="ai-form">
       <div class="space-y-4">
         <div>
-          <label class="text-xs text-gray-400 mb-1 block">Server-URL *</label>
-          <input type="url" name="ai_base_url" id="ai-url" class="input"
-                 placeholder="http://192.168.1.100:11434">
+          <label class="text-xs text-gray-400 mb-1.5 block font-medium">Server-URL *</label>
+          <input type="url" name="ai_base_url" id="ai-url" class="input" placeholder="http://192.168.1.100:11434">
           <p class="text-xs text-gray-600 mt-1">Ollama: http://IP:11434 | OpenAI-kompatibel: http://IP:PORT/v1</p>
         </div>
         <div>
-          <div class="flex items-center justify-between mb-1">
-            <label class="text-xs text-gray-400">Modell *</label>
-            <button type="button" class="text-xs text-blue-400 hover:text-blue-300"
-                    onclick="loadModels()">Verfügbare Modelle laden</button>
+          <div class="flex items-center justify-between mb-1.5">
+            <label class="text-xs text-gray-400 font-medium">Modell *</label>
+            <button type="button" onclick="loadModels()" style="font-size:0.75rem;color:#60a5fa;background:none;border:none;cursor:pointer;padding:0">
+              Verfügbare Modelle laden
+            </button>
           </div>
           <input type="text" name="ai_model" id="ai-model" class="input" placeholder="phi3:mini">
-          <div id="model-list" class="mt-1 flex flex-wrap gap-1 hidden"></div>
-          <p class="text-xs text-gray-600 mt-1">Empfohlen für Geschwindigkeit: phi3:mini, llama3.2:3b | Qualität: mistral:7b</p>
+          <div id="model-list" class="mt-2 flex flex-wrap gap-1 hidden"></div>
+          <p class="text-xs text-gray-600 mt-1">Empfohlen: phi3:mini, llama3.2:3b | Qualität: mistral:7b</p>
         </div>
         <div class="grid grid-cols-2 gap-4">
           <div>
-            <label class="text-xs text-gray-400 mb-1 block">Timeout (Sekunden)</label>
+            <label class="text-xs text-gray-400 mb-1.5 block font-medium">Timeout (Sekunden)</label>
             <input type="number" name="ai_timeout" id="ai-timeout" class="input" value="30" min="5" max="120">
           </div>
           <div>
-            <label class="text-xs text-gray-400 mb-1 block">Temperatur</label>
-            <input type="number" name="ai_temperature" id="ai-temp" class="input"
-                   value="0.1" step="0.05" min="0" max="1">
-            <p class="text-xs text-gray-600 mt-1">0.0 = deterministisch, 1.0 = kreativ</p>
+            <label class="text-xs text-gray-400 mb-1.5 block font-medium">Temperatur</label>
+            <input type="number" name="ai_temperature" id="ai-temp" class="input" value="0.1" step="0.05" min="0" max="1">
+            <p class="text-xs text-gray-600 mt-1">0.0 = deterministisch · 1.0 = kreativ</p>
           </div>
         </div>
       </div>
@@ -65,16 +63,41 @@
     checkAIHealth();
   });
 
+  document.getElementById('ai-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const btn = e.target.querySelector('[type=submit]');
+    btn.disabled = true;
+    try {
+      const r = await apiFetch('/api/settings/ai', {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          ai_base_url: fd.get('ai_base_url'),
+          ai_model: fd.get('ai_model'),
+          ai_timeout: fd.get('ai_timeout'),
+          ai_temperature: fd.get('ai_temperature'),
+        })
+      });
+      if (r.ok) { showToast('KI-Einstellungen gespeichert'); checkAIHealth(); }
+      else showToast('Fehler beim Speichern', 'error');
+    } catch { showToast('Netzwerkfehler', 'error'); }
+    btn.disabled = false;
+  });
+
   async function checkAIHealth() {
     const el = document.getElementById('ai-health');
     el.textContent = 'Prüfe...';
+    el.style.color = '#6b7280';
     try {
       const resp = await apiFetch('/api/settings/ai/health');
       const data = await resp.json();
-      el.innerHTML = data.ok
-        ? '<span class="text-green-400">● Verbunden</span>'
-        : '<span class="text-red-400">● Nicht erreichbar</span>';
-    } catch { el.innerHTML = '<span class="text-red-400">● Fehler</span>'; }
+      el.style.color = data.ok ? '#4ade80' : '#f87171';
+      el.textContent = data.ok ? '● Verbunden' : '● Nicht erreichbar';
+    } catch {
+      el.style.color = '#f87171';
+      el.textContent = '● Fehler';
+    }
   }
 
   async function loadModels() {
@@ -84,11 +107,15 @@
     try {
       const resp = await apiFetch('/api/settings/ai/models');
       const data = await resp.json();
-      listEl.innerHTML = data.models.map(m =>
-        `<button type="button" onclick="document.getElementById('ai-model').value='${m}'"
-                 class="badge-blue cursor-pointer hover:bg-blue-800 text-xs">${m}</button>`
-      ).join('') || '<span class="text-xs text-gray-500">Keine Modelle gefunden</span>';
-    } catch { listEl.innerHTML = '<span class="text-xs text-red-400">Fehler beim Laden</span>'; }
+      if (data.models?.length) {
+        listEl.innerHTML = data.models.map(m =>
+          `<button type="button" onclick="document.getElementById('ai-model').value='${m}'"
+                   class="badge-blue" style="cursor:pointer">${m}</button>`
+        ).join('');
+      } else {
+        listEl.innerHTML = '<span class="text-xs text-gray-500">Keine Modelle gefunden</span>';
+      }
+    } catch { listEl.innerHTML = '<span class="text-xs" style="color:#f87171">Fehler beim Laden</span>'; }
   }
 </script>
 {% endblock %}
