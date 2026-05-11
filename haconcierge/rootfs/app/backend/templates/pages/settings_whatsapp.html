@@ -21,25 +21,24 @@
   <div class="card mb-6">
     <h2 class="font-semibold mb-1">WhatsApp Registrierung</h2>
     <p class="text-sm text-gray-400 mb-4">
-      Gib deine Telefonnummer ein. WhatsApp sendet einen OTP-Code per SMS.
-      Da deine Nummer bei simquadrat registriert ist, erhältst du die SMS als E-Mail.
+      Gib deine Telefonnummer ein. WhatsApp sendet einen OTP-Code per SMS —
+      bei simquadrat kommt die SMS als E-Mail an.
     </p>
 
+    <!-- Step 1: Enter phone -->
     <div id="reg-step-1" class="space-y-3">
       <div>
         <label class="text-xs text-gray-400 mb-1.5 block font-medium">Telefonnummer <span class="font-normal">(international, ohne +)</span></label>
         <input id="reg-phone" type="text" class="input" placeholder="491701234567">
       </div>
-      <div class="flex gap-3">
-        <button class="btn-primary" onclick="requestCode()">📱 OTP per SMS anfordern</button>
-        <button class="btn-secondary" onclick="requestPairing()">🔗 Pairing Code</button>
-      </div>
+      <button class="btn-primary" onclick="requestCode()">📱 OTP-Code per SMS anfordern</button>
     </div>
 
+    <!-- Step 2: Enter OTP -->
     <div id="reg-step-2" class="hidden space-y-3">
-      <div class="flex items-center gap-2 p-3 bg-green-900/20 border border-green-800/40 rounded-lg">
-        <span class="text-green-400">✓</span>
-        <p class="text-sm text-green-300">Code angefordert! Prüfe deine E-Mail von simquadrat.</p>
+      <div style="display:flex;align-items:center;gap:8px;padding:12px;background:rgba(20,83,45,0.2);border:1px solid rgba(22,101,52,0.4);border-radius:8px">
+        <span style="color:#4ade80">✓</span>
+        <p class="text-sm" style="color:#86efac">Code angefordert! Prüfe deine E-Mail von simquadrat.</p>
       </div>
       <div>
         <label class="text-xs text-gray-400 mb-1.5 block font-medium">OTP Code aus E-Mail</label>
@@ -47,17 +46,8 @@
       </div>
       <div class="flex gap-3">
         <button class="btn-primary" onclick="confirmCode()">Bestätigen</button>
-        <button class="btn-secondary text-xs" onclick="document.getElementById('reg-step-1').classList.remove('hidden'); document.getElementById('reg-step-2').classList.add('hidden')">Zurück</button>
+        <button class="btn-secondary text-xs" onclick="showStep(1)">Zurück</button>
       </div>
-    </div>
-
-    <div id="reg-pairing" class="hidden space-y-3">
-      <div class="p-3 bg-yellow-900/20 border border-yellow-800/40 rounded-lg">
-        <p class="text-sm text-yellow-300">📱 Öffne WhatsApp → Einstellungen → Verknüpfte Geräte → Gerät verknüpfen → Code eingeben (statt QR)</p>
-      </div>
-      <div id="pairing-code" class="text-4xl font-mono tracking-widest text-center py-5 text-blue-300 bg-gray-800 rounded-xl border border-gray-700"></div>
-      <p class="text-xs text-gray-500 text-center">Code ist 60 Sekunden gültig</p>
-      <button class="btn-secondary text-xs w-full" onclick="document.getElementById('reg-step-1').classList.remove('hidden'); document.getElementById('reg-pairing').classList.add('hidden')">Zurück</button>
     </div>
   </div>
 
@@ -129,19 +119,9 @@
     } else { showToast('Fehler: ' + (data.error || 'Ungültiger Code'), 'error'); }
   }
 
-  async function requestPairing() {
-    const phone = document.getElementById('reg-phone').value.trim();
-    if (!phone) return showToast('Bitte Telefonnummer eingeben', 'error');
-    const resp = await apiFetch('/api/whatsapp/pair/request-code', {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({phone})
-    });
-    const data = await resp.json();
-    if (data.code) {
-      document.getElementById('reg-step-1').classList.add('hidden');
-      document.getElementById('reg-pairing').classList.remove('hidden');
-      document.getElementById('pairing-code').textContent = data.code;
-    } else { showToast('Fehler: ' + (data.error || 'Unbekannt'), 'error'); }
+  function showStep(n) {
+    document.getElementById('reg-step-1').classList.toggle('hidden', n !== 1);
+    document.getElementById('reg-step-2').classList.toggle('hidden', n !== 2);
   }
 
   async function disconnect() {

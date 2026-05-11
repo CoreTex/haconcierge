@@ -47,12 +47,15 @@ async function _connect() {
     console.log('Could not fetch WA version, using fallback');
   }
 
+  // mobile: true enables the OTP registration API (requestRegistrationCode /
+  // register). Without it makeWASocket creates a WhatsApp-Web socket that only
+  // supports QR / pairing-code linking and has no registration methods.
   _socket = makeWASocket({
     version,
     auth: state,
     logger,
     printQRInTerminal: false,
-    browser: ['HAConcierge', 'Chrome', '1.0.0'],
+    mobile: true,
     generateHighQualityLinkPreview: false,
     syncFullHistory: false,
   });
