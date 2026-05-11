@@ -1,34 +1,38 @@
-import { getSocket } from './session.js';
+import { getSocket, getConnectionState } from './session.js';
 
 export async function sendMessage(jid, text, quotedId = null) {
   const sock = getSocket();
   if (!sock) throw new Error('WhatsApp not connected');
 
   const content = { text };
-
   if (quotedId) {
-    // Build quoted message context for WhatsApp quoting feature
     content.contextInfo = {
       stanzaId: quotedId,
       participant: jid,
       quotedMessage: { conversation: '' },
     };
   }
-
   await sock.sendMessage(jid, content);
 }
 
 export async function getGroups() {
   const sock = getSocket();
-  if (!sock) return [];
+  const state = getConnectionState();
+  // Guard: groupFetchAllParticipating hangs until timeout if not connected
+  if (!sock || !state.connected) return [];
 
-  const groups = await sock.groupFetchAllParticipating();
-  return Object.entries(groups).map(([id, meta]) => ({
-    id,
-    name: meta.subject || id,
-    participantCount: meta.participants?.length || 0,
-    description: meta.desc || null,
-  }));
+  try {
+    const groups = await sock.groupFetchAllParticipating();
+    return Object.entries(groups).map(([id, meta]) => ({
+      id,
+      name: meta.subject || id,
+      participantCount: meta.participants?.length || 0,
+      description: meta.desc || null,
+    }));
+  } catch (err) {
+    console.error('getGroups error:', err.message);
+    return [];
+  }
 }
 
 export async function leaveGroup(jid) {
