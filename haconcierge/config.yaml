@@ -26,3 +26,4 @@ options:
   log_level: "info"
 schema:
   log_level: "str"
+image: "ghcr.io/coretex/haconcierge-{arch}"
