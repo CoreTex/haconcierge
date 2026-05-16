@@ -1,7 +1,7 @@
 import json
 import logging
 import re
-from datetime import datetime
+from datetime import datetime, date
 from typing import Optional
 from sqlalchemy.orm import Session
 
@@ -56,12 +56,16 @@ class MessageProcessor:
 
     async def process(self, message: Message) -> dict:
         owners_context = self._build_owners_context()
+        today = date.today()
+        weekdays_de = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"]
         prompt = EXTRACTION_PROMPT.format(
             owners_context=owners_context,
             sender_name=message.sender_name or "Unbekannt",
             sender_phone=message.sender_jid.split("@")[0],
             message_text=message.content,
             timestamp=message.timestamp.isoformat(),
+            today_date=today.isoformat(),
+            today_weekday=weekdays_de[today.weekday()],
         )
 
         raw = await self.ai.chat(
@@ -71,11 +75,15 @@ class MessageProcessor:
 
         result = {"appointments": [], "tasks": [], "keyword_hits": [], "summary": ""}
 
-        if raw:
+        if raw is None:
+            logger.warning("AI returned no response (timeout?) for message: %s", message.content[:100])
+        elif raw:
             try:
                 # Strip markdown code fences if present
                 cleaned = re.sub(r"```(?:json)?\s*|\s*```", "", raw).strip()
                 result = json.loads(cleaned)
+                if result.get("summary"):
+                    logger.info("AI summary: %s", result["summary"])
             except json.JSONDecodeError:
                 logger.warning("AI returned non-JSON: %s", raw[:200])
 
@@ -101,10 +109,16 @@ class MessageProcessor:
 
         for appt in result.get("appointments", []):
             if appt.get("confidence", 0) < MIN_CONFIDENCE:
+                logger.debug("Appointment below confidence threshold (%.2f): %s", appt.get("confidence", 0), appt.get("title"))
                 continue
             owner = owners.get(appt.get("owner_phone", ""))
             start = self._parse_datetime(appt.get("start_datetime"))
             if not start:
+                logger.warning(
+                    "Appointment '%s' dropped – AI returned no parseable start_datetime (got: %r). "
+                    "Check if the model resolved the relative date correctly.",
+                    appt.get("title"), appt.get("start_datetime")
+                )
                 continue
             a = Appointment(
                 title=appt["title"],

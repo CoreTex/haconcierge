@@ -11,7 +11,16 @@ Bekannte Personen (Besitzer) und ihre Erkennungsmerkmale:
 
 Nachricht von: {sender_name} ({sender_phone})
 Nachrichtentext: {message_text}
-Zeitpunkt: {timestamp}
+Zeitpunkt der Nachricht: {timestamp}
+Heutiges Datum: {today_date} ({today_weekday})
+
+Wichtig für Datumsauflösung:
+- Relative Angaben wie "heute", "morgen", "übermorgen", "Freitag", "nächste Woche" MÜSSEN
+  in absolute ISO8601-Datumsangaben aufgelöst werden, basierend auf dem heutigen Datum oben.
+- "Freitag" ohne Wochenzusatz = der nächste Freitag ab heute.
+- Wenn eine Uhrzeit genannt wird (z.B. "18 Uhr", "um 3"), immer als HH:MM:SS angeben.
+- Wenn kein Datum genannt wird aber eine Uhrzeit, start_datetime trotzdem befüllen (heutiges Datum).
+- Wenn weder Datum noch Uhrzeit, start_datetime = null.
 
 Extrahiere:
 1. Termine (Datum+Uhrzeit genannt oder klar impliziert)
