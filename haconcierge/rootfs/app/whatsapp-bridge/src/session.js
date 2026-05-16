@@ -16,9 +16,13 @@ let _socket = null;
 let _connectionState = { connected: false, status: 'disconnected', phone: null };
 let _sessionDir = null;
 let _forwardMessage = null;
+// Set to true once the socket emits a QR code – that is the moment the
+// transport handshake has completed and requestPairingCode can be called.
+let _qrReady = false;
 
 export function getSocket() { return _socket; }
 export function getConnectionState() { return { ..._connectionState }; }
+export function isQRReady() { return _qrReady; }
 
 export async function createWASession(sessionDir, forwardMessage) {
   _sessionDir = sessionDir;
@@ -61,26 +65,30 @@ async function _connect() {
   _socket.ev.on('connection.update', async (update) => {
     const { connection, lastDisconnect } = update;
 
+    // QR event = transport handshake done, socket is waiting for auth
+    if (update.qr) {
+      _qrReady = true;
+      console.log('QR ready – pairing code can now be requested');
+    }
+
     if (connection === 'open') {
+      _qrReady = false;
       const phone = _socket.user?.id?.split(':')[0] || null;
       _connectionState = { connected: true, status: 'connected', phone };
       console.log('WhatsApp connected, phone:', phone);
 
     } else if (connection === 'close') {
+      _qrReady = false;
       const code = lastDisconnect?.error?.output?.statusCode;
       const loggedOut = code === DisconnectReason.loggedOut;
 
       if (loggedOut) {
-        // Stale or rejected credentials. Clear them and restart in fresh
-        // (unregistered) mode so OTP / pairing registration can proceed.
         _socket = null;
         _connectionState = { connected: false, status: 'unregistered', phone: null };
         console.log('Session ended – clearing credentials and reconnecting fresh');
         await _clearCredentials();
         setTimeout(_connect, 2000);
       } else {
-        // Keep _socket non-null so requestRegistrationCode can be called during
-        // the reconnect window. _connect() will overwrite _socket when it runs.
         _connectionState = { connected: false, status: 'reconnecting', phone: null };
         console.log('Connection closed, reconnecting in 5s...');
         setTimeout(_connect, 5000);
@@ -122,34 +130,16 @@ async function _connect() {
   return _socket;
 }
 
-// ── Registration / pairing ────────────────────────────────────────────────────
-// All operate on the single shared socket. The socket is always running:
-// if credentials exist → authenticates automatically;
-// if no credentials → stays in unregistered state ready for OTP/pairing.
-
-export async function requestOTPCode(phone) {
-  if (!_socket) {
-    // Socket might be briefly null during reconnect cycle – wait up to 6s
-    await new Promise(resolve => setTimeout(resolve, 3000));
-    if (!_socket) await new Promise(resolve => setTimeout(resolve, 3000));
-  }
-  if (!_socket) throw new Error('Bridge socket not available. Please wait a moment and try again.');
-  const clean = phone.replace(/[\s\-\+]/g, '');
-  return _socket.requestRegistrationCode({ phoneNumber: clean, method: 'sms' });
-}
-
-export async function confirmOTPCode(code) {
-  if (!_socket) throw new Error('Bridge socket not available');
-  const clean = code.replace(/\D/g, '');
-  await _socket.register(clean);
-}
-
 export async function requestPairingCode(phone) {
-  if (!_socket) {
-    await new Promise(resolve => setTimeout(resolve, 3000));
-    if (!_socket) await new Promise(resolve => setTimeout(resolve, 3000));
+  // Wait up to 30 s for the socket to reach QR-ready state.
+  // The QR event is emitted once the WA noise handshake is complete –
+  // calling requestPairingCode before that point yields an invalid code.
+  for (let i = 0; i < 30; i++) {
+    if (_socket && _qrReady) break;
+    await new Promise(r => setTimeout(r, 1000));
   }
   if (!_socket) throw new Error('Bridge socket not available. Please wait a moment and try again.');
+  if (!_qrReady) throw new Error('Socket noch nicht bereit (kein QR-Event). Bitte kurz warten und erneut versuchen.');
   const clean = phone.replace(/[\s\-\+]/g, '');
   const code = await _socket.requestPairingCode(clean);
   return code.match(/.{1,4}/g)?.join('-') || code;

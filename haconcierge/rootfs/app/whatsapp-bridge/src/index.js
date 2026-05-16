@@ -1,7 +1,7 @@
 import express from 'express';
-import { createWASession, getSocket, getConnectionState } from './session.js';
+import { createWASession, getSocket, getConnectionState, isQRReady } from './session.js';
 import { sendMessage, getGroups, leaveGroup } from './messaging.js';
-import { requestRegistrationCode, confirmRegistrationCode, requestPairingCode } from './auth.js';
+import { requestPairingCode } from './auth.js';
 import pino from 'pino';
 
 const logger = pino({ level: process.env.LOG_LEVEL || 'info' });
@@ -32,7 +32,7 @@ async function forwardMessage(payload) {
 
 // Status
 app.get('/status', (req, res) => {
-  res.json(getConnectionState());
+  res.json({ ...getConnectionState(), qrReady: isQRReady() });
 });
 
 // Send message
@@ -66,22 +66,6 @@ app.post('/groups/leave', async (req, res) => {
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
-});
-
-// OTP registration – request SMS code
-app.post('/register/request-code', async (req, res) => {
-  const { phone } = req.body;
-  if (!phone) return res.status(400).json({ success: false, error: 'phone required' });
-  const result = await requestRegistrationCode(phone);
-  res.json(result);
-});
-
-// OTP registration – confirm code
-app.post('/register/confirm-code', async (req, res) => {
-  const { phone, code } = req.body;
-  if (!code) return res.status(400).json({ success: false, error: 'code required' });
-  const result = await confirmRegistrationCode(phone, code);
-  res.json(result);
 });
 
 // Pairing code (link existing WhatsApp account)
