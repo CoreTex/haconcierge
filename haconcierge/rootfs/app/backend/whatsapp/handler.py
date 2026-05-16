@@ -37,19 +37,36 @@ class MessageHandler:
         if not wa_id:
             return
 
+        chat_jid = payload.get("chatJid", "")
+
+        # WhatsApp status updates arrive with this JID – they are not DMs
+        if "status@broadcast" in chat_jid:
+            return
+
         # Deduplicate
         existing = self.db.query(Message).filter(Message.wa_message_id == wa_id).first()
         if existing:
             return
 
-        chat_jid = payload.get("chatJid", "")
         is_group = "@g.us" in chat_jid
 
-        # Check if group is monitored
+        # For group messages: skip if the group is not monitored
         if is_group:
             group = self.db.query(WhatsAppGroup).filter(WhatsAppGroup.jid == chat_jid).first()
             if group and not group.monitored:
                 return
+
+        # For DMs: check whether the sender is a known owner
+        owner_dm: Owner | None = None
+        if not is_group:
+            sender_phone = payload.get("senderJid", "").split("@")[0]
+            owner_dm = (
+                self.db.query(Owner)
+                .filter(Owner.phone == sender_phone, Owner.active == True)
+                .first()
+            )
+            if owner_dm:
+                logger.info("Owner DM from %s (%s): %s", owner_dm.name, sender_phone, payload.get("text", "")[:80])
 
         ts_raw = payload.get("timestamp", 0)
         timestamp = datetime.fromtimestamp(ts_raw) if ts_raw else datetime.utcnow()
@@ -76,21 +93,62 @@ class MessageHandler:
             self.db.commit()
             return
 
-        result = await self.processor.process(msg)
+        result = await self.processor.process(msg, owner_dm=owner_dm)
         created = await self.processor.persist_results(msg, result)
 
-        await self._dispatch_results(created, msg)
+        # For owner DMs: dispatch without proactive notify (we send a direct reply instead)
+        await self._dispatch_results(created, msg, skip_notify_owner=owner_dm)
 
-    async def _dispatch_results(self, created: dict, msg: Message) -> None:
+        if owner_dm:
+            await self._reply_to_owner_dm(owner_dm, created, chat_jid, msg.wa_message_id)
+
+    async def _reply_to_owner_dm(self, owner: Owner, created: dict, chat_jid: str, quoted_id: str) -> None:
+        """Send a direct confirmation reply to an owner who messaged the concierge."""
+        parts = []
+
+        for appt in created.get("appointments", []):
+            try:
+                from babel.dates import format_datetime
+                dt_str = format_datetime(appt.start_time, format="EEEE, d. MMMM yyyy – HH:mm 'Uhr'", locale="de_DE")
+            except Exception:
+                dt_str = str(appt.start_time)
+            line = f"📅 *Termin eingetragen:* {appt.title}\n   {dt_str}"
+            if appt.location:
+                line += f"\n   📍 {appt.location}"
+            parts.append(line)
+
+        for task in created.get("tasks", []):
+            line = f"✅ *Aufgabe eingetragen:* {task.title}"
+            if task.due_date:
+                try:
+                    from babel.dates import format_date
+                    line += f"\n   📆 Fällig: {format_date(task.due_date, format='d. MMMM yyyy', locale='de_DE')}"
+                except Exception:
+                    pass
+            parts.append(line)
+
+        if not parts:
+            reply = (
+                "🤔 Ich konnte keinen Termin und keine Aufgabe erkennen.\n\n"
+                "Beispiele:\n"
+                "• _Freitag 18 Uhr Bier trinken mit Eric_\n"
+                "• _Morgen um 10 Arzttermin_\n"
+                "• _Ich muss noch die Steuern einreichen_"
+            )
+        else:
+            reply = "\n\n".join(parts)
+
+        await self.wa.send_message(chat_jid, reply, quoted_id)
+
+    async def _dispatch_results(self, created: dict, msg: Message, skip_notify_owner: Owner = None) -> None:
         owners_by_id = {o.id: o for o in self.db.query(Owner).filter(Owner.active == True).all()}
+        proactive = self.config.get("wa_proactive_notify") == "true"
 
         for task in created.get("tasks", []):
             owner = owners_by_id.get(task.owner_id) if task.owner_id else None
-            # Fire HA event
             await self.ha.fire_task_event(task, msg, owner)
             task.ha_event_fired = True
 
-            # O365 Planner
             if self.o365_tasks and self.config.get("o365_enabled") == "true":
                 attendees = [owner.o365_email] if owner and owner.o365_email else []
                 o365_id = await self.o365_tasks.create_task(
@@ -102,8 +160,9 @@ class MessageHandler:
                 if o365_id:
                     task.o365_task_id = o365_id
 
-            # Notify owner via WhatsApp DM
-            if owner and owner.notify_on_task and self.config.get("wa_proactive_notify") == "true":
+            # Skip proactive notify if this result goes back to the DM sender (reply sent separately)
+            is_dm_sender = skip_notify_owner and owner and skip_notify_owner.id == owner.id
+            if proactive and owner and owner.notify_on_task and not is_dm_sender:
                 text = f"✅ Neue Aufgabe für dich erkannt:\n*{task.title}*"
                 if task.description:
                     text += f"\n{task.description}"
@@ -127,7 +186,8 @@ class MessageHandler:
                 if o365_id:
                     appt.o365_event_id = o365_id
 
-            if owner and owner.notify_on_appointment and self.config.get("wa_proactive_notify") == "true":
+            is_dm_sender = skip_notify_owner and owner and skip_notify_owner.id == owner.id
+            if proactive and owner and owner.notify_on_appointment and not is_dm_sender:
                 from babel.dates import format_datetime
                 dt_str = format_datetime(appt.start_time, format="medium", locale="de_DE")
                 text = f"📅 Neuer Termin erkannt:\n*{appt.title}*\n{dt_str}"
@@ -142,7 +202,8 @@ class MessageHandler:
             await self.ha.fire_keyword_event(hit, kw, owner, msg)
             hit.ha_event_fired = True
 
-            if owner and owner.notify_on_keyword and self.config.get("wa_proactive_notify") == "true":
+            is_dm_sender = skip_notify_owner and owner and skip_notify_owner.id == owner.id
+            if proactive and owner and owner.notify_on_keyword and not is_dm_sender:
                 text = f"🔔 Keyword erkannt: *{kw.word}*\nNachricht: {msg.content[:200]}"
                 await self.wa.send_message(f"{owner.phone}@s.whatsapp.net", text, msg.wa_message_id)
 

@@ -54,10 +54,22 @@ class MessageProcessor:
                 hits.append({"keyword_id": kw.id, "word": kw.word, "owner": kw.owner})
         return hits
 
-    async def process(self, message: Message) -> dict:
+    async def process(self, message: Message, owner_dm=None) -> dict:
         owners_context = self._build_owners_context()
         today = date.today()
         weekdays_de = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"]
+
+        if owner_dm:
+            dm_context = (
+                f"HINWEIS: Diese Nachricht ist eine direkte Eingabe von Besitzer '{owner_dm.name}' "
+                f"(Telefon: {owner_dm.phone}) an den Concierge. "
+                f"Weise alle erkannten Termine und Aufgaben diesem Besitzer zu "
+                f"(owner_phone: {owner_dm.phone}). "
+                f"Sei bei der Erkennung großzügig – der Besitzer gibt bewusst Daten ein."
+            )
+        else:
+            dm_context = ""
+
         prompt = EXTRACTION_PROMPT.format(
             owners_context=owners_context,
             sender_name=message.sender_name or "Unbekannt",
@@ -66,6 +78,7 @@ class MessageProcessor:
             timestamp=message.timestamp.isoformat(),
             today_date=today.isoformat(),
             today_weekday=weekdays_de[today.weekday()],
+            dm_context=dm_context,
         )
 
         raw = await self.ai.chat(

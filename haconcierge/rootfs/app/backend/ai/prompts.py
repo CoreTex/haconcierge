@@ -22,6 +22,7 @@ Wichtig für Datumsauflösung:
 - Wenn kein Datum genannt wird aber eine Uhrzeit, start_datetime trotzdem befüllen (heutiges Datum).
 - Wenn weder Datum noch Uhrzeit, start_datetime = null.
 
+{dm_context}
 Extrahiere:
 1. Termine (Datum+Uhrzeit genannt oder klar impliziert)
 2. Aufgaben (explizit oder implizit zugesagt/übernommen)
