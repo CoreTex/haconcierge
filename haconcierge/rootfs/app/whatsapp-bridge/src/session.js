@@ -8,7 +8,9 @@ import pino from 'pino';
 import path from 'path';
 import { readdir, unlink } from 'fs/promises';
 
-const logger = pino({ level: 'warn' });
+// fatal suppresses Baileys' internal error/warn noise (e.g. init query timeouts).
+// Our own events use console.log so nothing important is lost.
+const logger = pino({ level: 'fatal' });
 
 const FALLBACK_VERSION = [2, 3000, 1015901307];
 
@@ -63,6 +65,8 @@ async function _connect() {
     logger,
     printQRInTerminal: false,
     browser: ['HAConcierge', 'Chrome', '124.0.0'],
+    connectTimeoutMs: 60_000,
+    defaultQueryTimeoutMs: 60_000,
     generateHighQualityLinkPreview: false,
     syncFullHistory: false,
   });
