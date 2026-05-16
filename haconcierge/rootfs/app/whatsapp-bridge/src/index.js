@@ -1,7 +1,8 @@
 import express from 'express';
-import { createWASession, getSocket, getConnectionState, isQRReady } from './session.js';
+import { createWASession, getSocket, getConnectionState, isQRReady, getQRData } from './session.js';
 import { sendMessage, getGroups, leaveGroup } from './messaging.js';
 import { requestPairingCode } from './auth.js';
+import QRCode from 'qrcode';
 import pino from 'pino';
 
 const logger = pino({ level: process.env.LOG_LEVEL || 'info' });
@@ -33,6 +34,23 @@ async function forwardMessage(payload) {
 // Status
 app.get('/status', (req, res) => {
   res.json({ ...getConnectionState(), qrReady: isQRReady() });
+});
+
+// QR code as inline SVG – poll this every 10s while waiting to link
+app.get('/qr', async (req, res) => {
+  const data = getQRData();
+  if (!data) return res.json({ available: false });
+  try {
+    const svg = await QRCode.toString(data, {
+      type: 'svg',
+      width: 280,
+      margin: 2,
+      color: { dark: '#000000', light: '#ffffff' },
+    });
+    res.json({ available: true, svg });
+  } catch (err) {
+    res.status(500).json({ available: false, error: err.message });
+  }
 });
 
 // Send message

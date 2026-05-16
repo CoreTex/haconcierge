@@ -16,15 +16,17 @@ let _socket = null;
 let _connectionState = { connected: false, status: 'disconnected', phone: null };
 let _sessionDir = null;
 let _forwardMessage = null;
-// True once the noise handshake is complete and WA is waiting for auth.
-// requestPairingCode must only be called while this is true.
+// Raw QR string from Baileys – updated on every qr event, cleared on connect.
+let _qrData = null;
+// True while _qrData is fresh (socket awaiting auth). Used to gate pairing code.
 let _qrReady = false;
-// Timer handle for scheduled reconnects – kept so it can be cancelled.
+// Pending reconnect timer handle – kept so it can be cancelled.
 let _reconnectTimer = null;
 
 export function getSocket() { return _socket; }
 export function getConnectionState() { return { ..._connectionState }; }
 export function isQRReady() { return _qrReady; }
+export function getQRData() { return _qrData; }
 
 export async function createWASession(sessionDir, forwardMessage) {
   _sessionDir = sessionDir;
@@ -42,7 +44,6 @@ async function _clearCredentials() {
 }
 
 async function _connect() {
-  // Cancel any timer that would schedule another connect while this one runs.
   if (_reconnectTimer) { clearTimeout(_reconnectTimer); _reconnectTimer = null; }
 
   const authDir = path.join(_sessionDir, 'baileys_auth');
@@ -71,32 +72,34 @@ async function _connect() {
   _socket.ev.on('connection.update', async (update) => {
     const { connection, lastDisconnect } = update;
 
-    // QR event = noise handshake complete; socket is ready for requestPairingCode
     if (update.qr) {
+      _qrData = update.qr;
       _qrReady = true;
-      console.log('QR ready – pairing code can now be requested');
+      console.log('QR ready – scan with WhatsApp to link device');
     }
 
     if (connection === 'open') {
+      _qrData = null;
       _qrReady = false;
       const phone = _socket.user?.id?.split(':')[0] || null;
       _connectionState = { connected: true, status: 'connected', phone };
       console.log('WhatsApp connected, phone:', phone);
 
     } else if (connection === 'close') {
+      _qrData = null;
       _qrReady = false;
-      const code = lastDisconnect?.error?.output?.statusCode;
-      const loggedOut = code === DisconnectReason.loggedOut;
+      const statusCode = lastDisconnect?.error?.output?.statusCode;
+      const reason = lastDisconnect?.error?.message || 'unknown';
+      const loggedOut = statusCode === DisconnectReason.loggedOut;
+      console.log(`WA disconnected – statusCode=${statusCode} loggedOut=${loggedOut} reason="${reason}"`);
 
       if (loggedOut) {
         _socket = null;
         _connectionState = { connected: false, status: 'unregistered', phone: null };
-        console.log('Session ended – clearing credentials and reconnecting fresh');
         await _clearCredentials();
         _reconnectTimer = setTimeout(_connect, 2000);
       } else {
         _connectionState = { connected: false, status: 'reconnecting', phone: null };
-        console.log('Connection closed, reconnecting in 5s...');
         _reconnectTimer = setTimeout(_connect, 5000);
       }
 
@@ -141,24 +144,13 @@ export async function requestPairingCode(phone) {
     throw new Error('Bereits verbunden. Bitte zuerst trennen.');
   }
 
-  // Cancel any pending reconnect, clear all credentials, and start a clean
-  // socket. Stale auth files from previous attempts (e.g. the mobile API
-  // sessions) corrupt the session keys and cause WA to reject the pairing
-  // handshake even when the code itself is delivered successfully.
-  if (_reconnectTimer) { clearTimeout(_reconnectTimer); _reconnectTimer = null; }
-  _socket = null;
-  _qrReady = false;
-  await _clearCredentials();
-  await _connect();
-
-  // _connect() returns as soon as the socket object is created; the QR event
-  // fires asynchronously once the noise handshake completes (~1–3 s).
+  // Wait up to 30s for QR-ready (noise handshake done, socket awaiting auth)
   for (let i = 0; i < 30; i++) {
     if (_socket && _qrReady) break;
     await new Promise(r => setTimeout(r, 1000));
   }
-  if (!_socket) throw new Error('Bridge socket not available. Please wait a moment and try again.');
-  if (!_qrReady) throw new Error('Socket noch nicht bereit. Bitte kurz warten und erneut versuchen.');
+  if (!_socket) throw new Error('Bridge socket not available. Please wait and try again.');
+  if (!_qrReady) throw new Error('Socket nicht bereit. Bitte kurz warten und erneut versuchen.');
 
   const clean = phone.replace(/[\s\-\+]/g, '');
   const code = await _socket.requestPairingCode(clean);

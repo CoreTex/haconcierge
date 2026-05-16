@@ -53,6 +53,13 @@ async def confirm_registration_code(body: ConfirmCodeRequest, request: Request, 
     return result
 
 
+@router.get("/qr")
+async def get_qr(request: Request):
+    """Return current WA QR code as inline SVG for device linking."""
+    wa_client = request.app.state.wa_client
+    return await wa_client.get_qr()
+
+
 @router.post("/pair/request-code")
 async def request_pairing_code(body: RegisterRequest, request: Request):
     wa_client = request.app.state.wa_client

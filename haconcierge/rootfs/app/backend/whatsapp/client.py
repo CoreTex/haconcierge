@@ -91,6 +91,15 @@ class WhatsAppBridgeClient:
             logger.error("Failed to get pairing code: %s", e)
             return {"success": False, "error": str(e)}
 
+    async def get_qr(self) -> dict:
+        """Return the current QR code as inline SVG, or {available: false}."""
+        try:
+            async with httpx.AsyncClient(timeout=3) as client:
+                resp = await client.get(f"{self.url}/qr")
+                return resp.json()
+        except Exception:
+            return {"available": False}
+
     async def disconnect(self) -> bool:
         try:
             async with httpx.AsyncClient(timeout=5) as client:
